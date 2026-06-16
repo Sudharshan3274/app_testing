@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Interviu AI</string>
+    <string name="title_activity_main">Interviu AI</string>
+    <string name="package_name">com.interviu.app</string>
+    <string name="custom_url_scheme">com.interviu.app</string>
+</resources>

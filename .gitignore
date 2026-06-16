@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+
+# Build output
+dist/
+build/
+.vite/
+
+# Expo
+interviu-expo/
+
+# Environment
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# APK
+*.apk
+
+# Zip files
+*.zip
+
+# Logs
+*.log
+
+# Live test dependencies (keep source, exclude node_modules)
+frontend/live-test/node_modules/

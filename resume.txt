@@ -1,0 +1,19 @@
+John Doe
+Email: john.doe@example.com
+Phone: 123-456-7890
+LinkedIn: linkedin.com/in/johndoe
+
+Summary:
+Experienced Python and React developer with a strong background in building REST APIs and web applications.
+
+Experience:
+Software Engineer at TechCorp (2023 - Present)
+- Developed and optimized web applications using React and Node.js.
+- Improved API response times by 30% through caching and query optimization.
+- Led a team of 3 developers to deliver a critical project on time.
+
+Education:
+Bachelor of Science in Computer Science, University of Technology
+
+Skills:
+Python, JavaScript, React, Node.js, SQL, Git, Docker
