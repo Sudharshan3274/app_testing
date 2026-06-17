@@ -1,5 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import { Upload, FileText, CheckCircle, AlertTriangle, XCircle, TrendingUp, Award, Briefcase, GraduationCap, Code, Mail, BarChart3, RefreshCw } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
 
 // --- ATS Keyword Database per Category ---
 const ATS_KEYWORDS = {
@@ -241,18 +247,51 @@ export default function ResumeAnalysis() {
     }
   }, []);
 
-  const readFileAsText = (file) => {
+  const readFileAsText = async (file) => {
+    // PDF files — extract text using pdfjs-dist
+    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+      return fullText;
+    }
+    
+    // DOCX files — extract text using mammoth
+    if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      return result.value;
+    }
+
+    // DOC files (legacy) — try mammoth, fallback to raw text
+    if (file.type === 'application/msword' || file.name.endsWith('.doc')) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        return result.value;
+      } catch {
+        // Fallback for old .doc format
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+      }
+    }
+
+    // TXT files — direct read
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target.result);
       reader.onerror = reject;
-      
-      if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-        reader.readAsText(file);
-      } else {
-        // For PDF/DOCX, read as text — won't get formatting but gets raw content
-        reader.readAsText(file);
-      }
+      reader.readAsText(file);
     });
   };
 

@@ -482,3 +482,580 @@ button {
   }
 }
 
+/* ═══════════════════════════════════════════════════════
+   COURSE DETAILS — Desktop Defaults
+   ═══════════════════════════════════════════════════════ */
+.cd-container {
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+
+.cd-title {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+  font-weight: 800;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.cd-description {
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  max-width: 800px;
+  line-height: 1.6;
+}
+
+.cd-tabs {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cd-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.6rem;
+  border-radius: 10px;
+  transition: all 0.25s;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.cd-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2.5rem;
+}
+
+.cd-learn-title {
+  color: #fff;
+  font-size: 1.5rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cd-learn-text {
+  color: var(--text-primary);
+  font-size: 0.975rem;
+  line-height: 1.5;
+}
+
+.cd-section-title {
+  margin: 0;
+  color: #fff;
+  font-size: 1.6rem;
+}
+
+.cd-code-block {
+  background: #070a13;
+  padding: 1.5rem;
+  border-radius: 10px;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  -webkit-overflow-scrolling: touch;
+}
+
+.cd-code-text {
+  font-family: "Fira Code", monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.cd-roadmap-title {
+  margin: 0;
+  color: #fff;
+  font-size: 1.25rem;
+}
+
+.cd-roadmap-desc {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.975rem;
+  line-height: 1.6;
+  max-width: 750px;
+}
+
+.cd-qa-question {
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: transparent;
+  text-align: left;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  gap: 1rem;
+  font-family: inherit;
+}
+
+.cd-def-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.cd-def-card {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent-primary);
+  border-top: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════
+   COURSE DETAILS — Mobile (≤480px) Android-optimized
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .cd-container {
+    padding-top: 1rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  /* Reduce container padding on mobile */
+  .container.cd-container {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  /* Course title: fits on mobile without clipping */
+  .cd-title {
+    font-size: 1.75rem !important;
+    line-height: 1.2;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Description: smaller for readability */
+  .cd-description {
+    font-size: 0.95rem !important;
+    line-height: 1.5;
+  }
+
+  /* Tabs: compact, scrollable chips */
+  .cd-tabs {
+    gap: 0.5rem !important;
+    margin-bottom: 1rem !important;
+    padding-bottom: 0.75rem;
+    scrollbar-width: none;
+  }
+
+  .cd-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cd-tab-btn {
+    padding: 0.55rem 0.9rem !important;
+    font-size: 0.8rem !important;
+    border-radius: 20px !important;
+    gap: 0.35rem !important;
+    flex-shrink: 0;
+  }
+
+  .cd-tab-btn svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  /* Glass panel: less padding on mobile */
+  .cd-glass-panel {
+    padding: 1rem !important;
+    border-radius: 12px !important;
+    min-height: unset !important;
+  }
+
+  /* Overview tab: single column stack */
+  .cd-overview-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .cd-learn-title {
+    font-size: 1.2rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .cd-learn-text {
+    font-size: 0.9rem !important;
+  }
+
+  /* Section headings */
+  .cd-section-title {
+    font-size: 1.25rem !important;
+  }
+
+  /* Code blocks: prevent horizontal overflow */
+  .cd-code-block {
+    padding: 1rem !important;
+    border-radius: 8px !important;
+    max-width: calc(100vw - 3rem);
+  }
+
+  .cd-code-text {
+    font-size: 0.8rem !important;
+    line-height: 1.5;
+  }
+
+  /* Definitions: single column */
+  .cd-def-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .cd-def-card {
+    padding: 1rem !important;
+    border-radius: 10px !important;
+  }
+
+  .cd-def-card h4 {
+    font-size: 0.975rem !important;
+  }
+
+  .cd-def-card p {
+    font-size: 0.85rem !important;
+  }
+
+  /* Roadmap */
+  .cd-roadmap-title {
+    font-size: 1.05rem !important;
+  }
+
+  .cd-roadmap-desc {
+    font-size: 0.875rem !important;
+  }
+
+  /* Q&A accordion */
+  .cd-qa-question {
+    padding: 1rem !important;
+    font-size: 0.9rem !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Prerequisites box */
+  .cd-prereq-box {
+    padding: 1rem !important;
+  }
+
+  .cd-prereq-box h3 {
+    font-size: 1rem !important;
+  }
+
+  .cd-prereq-box li {
+    font-size: 0.875rem !important;
+  }
+
+  /* CTA box */
+  .cd-cta-box {
+    padding: 1.25rem !important;
+  }
+
+  .cd-cta-box h4 {
+    font-size: 1rem !important;
+  }
+
+  .cd-cta-box p {
+    font-size: 0.85rem !important;
+  }
+
+  /* Theory text */
+  .cd-theory-text {
+    font-size: 0.925rem !important;
+    line-height: 1.6 !important;
+  }
+
+  /* Back button */
+  .cd-back-btn {
+    padding: 0.5rem 0.8rem !important;
+    font-size: 0.85rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  /* Badges */
+  .cd-badge {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.6rem !important;
+  }
+
+  /* Header section */
+  .cd-header {
+    margin-bottom: 1.5rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  /* Code example tabs */
+  .cd-code-example-tab {
+    font-size: 0.8rem !important;
+    padding: 0.4rem 0.75rem !important;
+  }
+
+  /* Copy button */
+  .cd-copy-btn {
+    font-size: 0.75rem !important;
+    padding: 0.3rem 0.5rem !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   COURSE DETAILS — Extra small screens (≤360px)
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 360px) {
+  .cd-title {
+    font-size: 1.5rem !important;
+  }
+
+  .cd-description {
+    font-size: 0.875rem !important;
+  }
+
+  .cd-tab-btn {
+    padding: 0.45rem 0.7rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .cd-code-text {
+    font-size: 0.72rem !important;
+  }
+
+  .container.cd-container {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   COURSES LIST — Mobile (≤480px) Android-optimized
+   ═══════════════════════════════════════════════════════ */
+.courses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+}
+
+.courses-title {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.courses-subtitle {
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .courses-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .courses-title {
+    font-size: 1.75rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .courses-subtitle {
+    font-size: 0.9rem !important;
+  }
+
+  .course-card {
+    padding: 1.25rem !important;
+  }
+
+  .course-card h3 {
+    font-size: 1.05rem !important;
+  }
+
+  .course-card p {
+    font-size: 0.875rem !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIVE INTERVIEW — Mobile-optimized Layout (Android)
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  /* Container */
+  .li-container {
+    padding: 0.75rem !important;
+    min-height: auto !important;
+  }
+
+  /* Header — stack vertically */
+  .li-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .li-title {
+    font-size: 1.1rem !important;
+  }
+
+  /* Header action buttons — compact row */
+  .li-header-actions {
+    display: flex !important;
+    gap: 0.4rem !important;
+    width: 100% !important;
+  }
+
+  .li-action-btn {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.75rem !important;
+    flex: 1 !important;
+    justify-content: center !important;
+  }
+
+  .li-btn-text {
+    font-size: 0.7rem !important;
+  }
+
+  /* Main content — STACK VERTICALLY */
+  .li-main-content {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Video panel — SMALL at top */
+  .li-video-panel {
+    flex: none !important;
+    max-height: 180px !important;
+    width: 100% !important;
+    padding: 0.5rem !important;
+  }
+
+  .li-video-panel > div:first-child {
+    min-height: 120px !important;
+    max-height: 140px !important;
+  }
+
+  /* Q&A panel — below camera, full width */
+  .li-qa-panel {
+    flex: 1 !important;
+    padding: 1rem !important;
+    gap: 0.75rem !important;
+    overflow-y: auto !important;
+  }
+
+  /* Question text — readable size */
+  .li-question-text {
+    font-size: 1.05rem !important;
+    line-height: 1.45 !important;
+  }
+
+  /* Textarea — full width, smaller */
+  .li-textarea {
+    min-height: 100px !important;
+    font-size: 0.85rem !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHALLENGES PAGE — Mobile-optimized Layout (Android)
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  /* Container — stack vertically instead of side-by-side */
+  .ch-container {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 100vh !important;
+  }
+
+  /* Sidebar — becomes horizontal scrollable strip at top */
+  .ch-sidebar {
+    width: 100% !important;
+    max-height: 45vh !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    padding: 0.75rem !important;
+    overflow-y: auto !important;
+  }
+
+  /* Workspace — takes remaining space */
+  .ch-workspace {
+    flex: 1 !important;
+    min-height: 55vh !important;
+  }
+
+  /* Header — stack and wrap */
+  .ch-header {
+    padding: 0.75rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  .ch-title {
+    font-size: 1rem !important;
+  }
+
+  .ch-actions {
+    width: 100% !important;
+  }
+
+  .ch-actions button {
+    flex: 1 !important;
+    justify-content: center !important;
+    padding: 0.4rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Split view — stack vertically */
+  .ch-split-view {
+    flex-direction: column !important;
+  }
+
+  /* Description panel — scrollable, limited height */
+  .ch-description {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    max-height: 40vh !important;
+    padding: 1rem !important;
+  }
+
+  /* Editor panel — full width */
+  .ch-editor-panel {
+    min-height: 300px !important;
+  }
+}
+
+/* Extra small screens (320-360px) */
+@media (max-width: 360px) {
+  .li-action-btn {
+    padding: 0.35rem 0.4rem !important;
+  }
+
+  .li-btn-text {
+    display: none !important;
+  }
+
+  .li-question-text {
+    font-size: 0.95rem !important;
+  }
+
+  .ch-sidebar {
+    max-height: 35vh !important;
+  }
+
+  .ch-description {
+    max-height: 35vh !important;
+  }
+}
+

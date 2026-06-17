@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, UserPlus, User } from 'lucide-react';
+import { Mail, Lock, UserPlus, User, ArrowLeft } from 'lucide-react';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -72,9 +72,24 @@ export default function Signup() {
           zIndex: 0
         }} />
 
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', marginBottom: '2.5rem' }}>
-          <h2 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem', marginTop: 0 }}>Create Account</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>Join Interviu AI to start your prep journey.</p>
+        <div style={{ position: 'relative', zIndex: 1, marginBottom: '2.5rem' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+              background: 'transparent', border: 'none', color: 'var(--text-secondary)',
+              cursor: 'pointer', padding: '0.4rem 0', marginBottom: '1.5rem',
+              fontSize: '0.9rem', fontFamily: 'inherit', transition: 'color 0.2s'
+            }}
+            onMouseOver={e => e.currentTarget.style.color = 'var(--accent-primary)'}
+            onMouseOut={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+          >
+            <ArrowLeft size={18} /> Back to Home
+          </button>
+          <div style={{ textAlign: 'center' }}>
+            <h2 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem', marginTop: 0 }}>Create Account</h2>
+            <p style={{ color: 'var(--text-secondary)' }}>Join Interviu AI to start your prep journey.</p>
+          </div>
         </div>
 
         {error && (

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Brain, MessageSquare, Zap, Activity, ClipboardList, CheckCircle2, AlertCircle, Clock, FileText } from 'lucide-react';
+import { ArrowLeft, Brain, MessageSquare, Zap, Activity, ClipboardList, CheckCircle2, AlertCircle, Clock, FileText, Eye, Sparkles } from 'lucide-react';
 
 export default function InterviewResult() {
   const { id } = useParams();
@@ -23,8 +23,9 @@ export default function InterviewResult() {
     </div>
   );
 
-  const { scores, questions = [], textAnswers = [], metrics = {}, domain, date } = result;
+  const { scores, questions = [], textAnswers = [], metrics = {}, domain, date, aiFeedback, eyeContactScore } = result;
   const timePerQuestion = metrics.timePerQuestion || [];
+  const hasAI = aiFeedback && aiFeedback.ai_powered;
 
   // Helper for Grade calculation
   const getGrade = (score) => {
@@ -95,6 +96,7 @@ export default function InterviewResult() {
         <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: 800, margin: '0 0 0.5rem 0' }}>Interview Evaluation Report</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', margin: 0 }}>
           Role Profile: <strong style={{ color: '#fff' }}>{domain}</strong> &bull; Evaluated on: {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          {hasAI && <span style={{ marginLeft: '0.75rem', padding: '0.2rem 0.6rem', borderRadius: '4px', background: 'rgba(99,102,241,0.15)', color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 700 }}><Sparkles size={11} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />AI Powered</span>}
         </p>
       </div>
 
@@ -137,13 +139,23 @@ export default function InterviewResult() {
             {gradeLabel} Performance
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0 0 1.5rem 0' }}>
-            {scores.overall >= 85 
+            {hasAI && aiFeedback.feedback?.overall
+              ? aiFeedback.feedback.overall
+              : scores.overall >= 85 
               ? "Outstanding response pattern! Your industry terminologies, structured arguments, and detailed justifications show advanced readiness."
               : scores.overall >= 70
               ? "Solid showing. You have a good base. Incorporating the suggested structural frameworks will push you into the top tier."
               : "A valuable diagnostic run. To raise your profile, focus on providing more thorough explanations and using industry keywords."
             }
           </p>
+          {/* Eye Contact Score */}
+          {eyeContactScore !== undefined && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', fontSize: '0.9rem' }}>
+              <Eye size={16} color={eyeContactScore >= 70 ? 'var(--success)' : eyeContactScore >= 50 ? 'var(--warning)' : 'var(--danger)'} />
+              <span style={{ color: 'var(--text-secondary)' }}>Eye Contact:</span>
+              <strong style={{ color: eyeContactScore >= 70 ? 'var(--success)' : eyeContactScore >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{eyeContactScore}%</strong>
+            </div>
+          )}
         </div>
 
         {/* Right Column: 5 Score Sectors */}
@@ -172,13 +184,47 @@ export default function InterviewResult() {
                 <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{ width: `${score}%`, height: '100%', background: barColor, borderRadius: '3px', transition: 'width 0.8s ease-out' }} />
                 </div>
+                {/* AI feedback per sector */}
+                {hasAI && aiFeedback.feedback?.[sec.key] && (
+                  <div style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, fontStyle: 'italic', paddingLeft: '2.6rem' }}>
+                    {aiFeedback.feedback[sec.key]}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Actionable Tips / Recommendations */}
+      {/* AI Feedback: Strengths & Areas to Improve */}
+      {hasAI && (aiFeedback.topStrengths || aiFeedback.areasToImprove) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+          {/* Strengths */}
+          <div className="glass-panel" style={{ padding: '1.5rem 2rem', borderLeft: '4px solid var(--success)' }}>
+            <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)', fontSize: '1.05rem' }}>
+              <CheckCircle2 size={18} /> Top Strengths
+            </h3>
+            <ul style={{ paddingLeft: '1.25rem', margin: 0, lineHeight: 1.8, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              {(aiFeedback.topStrengths || []).map((s, i) => (
+                <li key={i} style={{ marginBottom: '0.3rem' }}>{s}</li>
+              ))}
+            </ul>
+          </div>
+          {/* Areas to Improve */}
+          <div className="glass-panel" style={{ padding: '1.5rem 2rem', borderLeft: '4px solid var(--warning)' }}>
+            <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--warning)', fontSize: '1.05rem' }}>
+              <AlertCircle size={18} /> Areas to Improve
+            </h3>
+            <ul style={{ paddingLeft: '1.25rem', margin: 0, lineHeight: 1.8, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              {(aiFeedback.areasToImprove || []).map((s, i) => (
+                <li key={i} style={{ marginBottom: '0.3rem' }}>{s}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Fallback Recommendations (when no AI) */}
       <div className="glass-panel" style={{ padding: '2rem 2.5rem', marginBottom: '3rem', borderLeft: '4px solid var(--accent-primary)' }}>
         <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
           <AlertCircle size={22} color="var(--accent-primary)" /> Recommendations for Improvement

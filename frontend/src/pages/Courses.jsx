@@ -37,14 +37,14 @@ export default function Courses() {
   return (
     <div className="container" style={{ paddingTop: '3rem', paddingBottom: '4rem' }}>
       <div style={{ marginBottom: '3rem', textAlign: 'center' }}>
-        <h1 className="gradient-text" style={{ fontSize: '3rem', marginBottom: '1rem' }}>Learning Path</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', maxWidth: '700px', margin: '0 auto' }}>
+        <h1 className="gradient-text courses-title" style={{ fontSize: '3rem', marginBottom: '1rem' }}>Learning Path</h1>
+        <p className="courses-subtitle" style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', maxWidth: '700px', margin: '0 auto' }}>
           Explore our trending technology courses. Master new skills with comprehensive theory, 
           code examples, and interview prep guides.
         </p>
       </div>
 
-      <div style={{ 
+      <div className="courses-grid" style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
         gap: '2rem'

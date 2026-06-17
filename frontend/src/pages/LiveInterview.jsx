@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Video, Mic, StopCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Video, Mic, StopCircle, ArrowRight, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 // ─── Common / Behavioral pool (always pick 3 randomly) ───────────────────────
 const COMMON_QUESTIONS = [
@@ -341,11 +341,18 @@ export default function LiveInterview() {
   // Timer-based fallback: seconds spent on current question
   const [secondsOnQuestion, setSecondsOnQuestion] = useState(0);
 
+  // ── Eye Tracking State ──
+  const [eyeContactActive, setEyeContactActive] = useState(true);  // is user looking at camera RIGHT NOW
+  const [eyeContactPercent, setEyeContactPercent] = useState(100);
+  const eyeTrackRef = useRef({ lookingFrames: 0, totalFrames: 0, faceMesh: null, animFrame: null });
+  const canvasRef = useRef(null);
+  const [analyzingResults, setAnalyzingResults] = useState(false);
+
   // ── Next button enabled when: text ≥15 chars OR ≥10 s on this question ──
   const currentText = textAnswers[currentQuestionIdx] || '';
   const canProceed = currentText.length >= 15 || secondsOnQuestion >= 10;
 
-  // Camera setup
+  // Camera setup + Eye Tracking
   useEffect(() => {
     const startCamera = async () => {
       try {
@@ -353,6 +360,8 @@ export default function LiveInterview() {
         streamRef.current = mediaStream;
         if (videoRef.current) videoRef.current.srcObject = mediaStream;
         setCameraReady(true);
+        // Initialize eye tracking after camera is ready
+        initEyeTracking();
       } catch (err) {
         console.error('Camera error:', err);
         setCameraReady(false);
@@ -361,7 +370,124 @@ export default function LiveInterview() {
     startCamera();
     return () => {
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+      if (eyeTrackRef.current.animFrame) cancelAnimationFrame(eyeTrackRef.current.animFrame);
     };
+  }, []);
+
+  // ── Eye Tracking with MediaPipe FaceMesh ──
+  const initEyeTracking = useCallback(async () => {
+    try {
+      // Dynamically load MediaPipe FaceMesh via CDN
+      const FaceMesh = window.FaceMesh;
+      if (!FaceMesh) {
+        // Load the script dynamically
+        await new Promise((resolve, reject) => {
+          if (document.querySelector('script[src*="face_mesh"]')) { resolve(); return; }
+          const s1 = document.createElement('script');
+          s1.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js';
+          s1.crossOrigin = 'anonymous';
+          s1.onload = resolve;
+          s1.onerror = reject;
+          document.head.appendChild(s1);
+        });
+        // Also load camera utils
+        await new Promise((resolve, reject) => {
+          if (document.querySelector('script[src*="camera_utils"]')) { resolve(); return; }
+          const s2 = document.createElement('script');
+          s2.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
+          s2.crossOrigin = 'anonymous';
+          s2.onload = resolve;
+          s2.onerror = reject;
+          document.head.appendChild(s2);
+        });
+      }
+
+      // Wait a moment for scripts to initialize
+      await new Promise(r => setTimeout(r, 500));
+
+      if (!window.FaceMesh) {
+        console.warn('FaceMesh not available, eye tracking disabled');
+        return;
+      }
+
+      const faceMesh = new window.FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+      });
+
+      faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+
+      faceMesh.onResults((results) => {
+        const tracker = eyeTrackRef.current;
+        tracker.totalFrames++;
+
+        if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+          const landmarks = results.multiFaceLandmarks[0];
+          // Iris landmarks: left iris center = 468, right iris center = 473
+          // Eye corners: left eye inner=133, outer=33 | right eye inner=362, outer=263
+          const leftIris = landmarks[468];
+          const rightIris = landmarks[473];
+          const leftInner = landmarks[133];
+          const leftOuter = landmarks[33];
+          const rightInner = landmarks[362];
+          const rightOuter = landmarks[263];
+
+          if (leftIris && rightIris && leftInner && leftOuter && rightInner && rightOuter) {
+            // Calculate horizontal gaze ratio for each eye
+            const leftEyeWidth = Math.abs(leftOuter.x - leftInner.x);
+            const leftIrisPos = (leftIris.x - leftOuter.x) / (leftEyeWidth || 0.001);
+            
+            const rightEyeWidth = Math.abs(rightInner.x - rightOuter.x);
+            const rightIrisPos = (rightIris.x - rightOuter.x) / (rightEyeWidth || 0.001);
+            
+            const avgGaze = (leftIrisPos + rightIrisPos) / 2;
+            
+            // Looking at camera if gaze is roughly centered (0.3 to 0.7)
+            const isLooking = avgGaze > 0.25 && avgGaze < 0.75;
+            
+            if (isLooking) {
+              tracker.lookingFrames++;
+            }
+            setEyeContactActive(isLooking);
+          }
+        } else {
+          // No face detected = not looking
+          setEyeContactActive(false);
+        }
+
+        // Update percentage
+        if (tracker.totalFrames > 0) {
+          setEyeContactPercent(Math.round((tracker.lookingFrames / tracker.totalFrames) * 100));
+        }
+      });
+
+      eyeTrackRef.current.faceMesh = faceMesh;
+
+      // Process frames from video
+      const processFrame = async () => {
+        if (videoRef.current && videoRef.current.readyState >= 2 && eyeTrackRef.current.faceMesh) {
+          try {
+            await eyeTrackRef.current.faceMesh.send({ image: videoRef.current });
+          } catch (e) {
+            // Ignore frame processing errors
+          }
+        }
+        eyeTrackRef.current.animFrame = requestAnimationFrame(processFrame);
+      };
+      
+      // Start processing after a delay to let video stabilize
+      setTimeout(() => {
+        eyeTrackRef.current.animFrame = requestAnimationFrame(processFrame);
+      }, 2000);
+
+      console.log('[Eye Tracking] MediaPipe FaceMesh initialized');
+    } catch (err) {
+      console.warn('[Eye Tracking] Could not initialize:', err.message);
+    }
   }, []);
 
   // Reset per-question state when question changes
@@ -391,21 +517,54 @@ export default function LiveInterview() {
     setRecordedQuestions(prev => [...prev, wasRecordingThisQuestion]);
   }, [questionStartTime, wasRecordingThisQuestion]);
 
-  const finalizeInterview = useCallback((extraTime, extraRecorded) => {
+  const finalizeInterview = useCallback(async (extraTime, extraRecorded) => {
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    if (eyeTrackRef.current.animFrame) cancelAnimationFrame(eyeTrackRef.current.animFrame);
 
     const finalElapsed = extraTime ?? (Date.now() - questionStartTime) / 1000;
     const finalTimePerQuestion = [...timePerQuestion, finalElapsed];
     const finalRecordedQuestions = [...recordedQuestions, extraRecorded ?? wasRecordingThisQuestion];
+    const finalEyeContact = eyeContactPercent;
 
-    const scores = calculateScores({
-      timePerQuestion: finalTimePerQuestion,
-      recordedQuestions: finalRecordedQuestions,
-      totalQuestions: questions.length,
-      questionsAnswered: currentQuestionIdx + 1,
-      domain,
-      textAnswers,
-    });
+    // Try AI-powered analysis from backend first
+    setAnalyzingResults(true);
+    let scores, aiFeedback;
+    try {
+      const response = await fetch('http://localhost:8000/api/interview/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain,
+          questions,
+          answers: textAnswers,
+          timePerQuestion: finalTimePerQuestion.map(t => Math.round(t)),
+          eyeContactScore: finalEyeContact,
+          recordedQuestions: finalRecordedQuestions,
+        })
+      });
+      if (!response.ok) throw new Error('Backend unavailable');
+      const aiResult = await response.json();
+      scores = aiResult.scores;
+      aiFeedback = {
+        feedback: aiResult.feedback,
+        perQuestionFeedback: aiResult.perQuestionFeedback,
+        topStrengths: aiResult.topStrengths,
+        areasToImprove: aiResult.areasToImprove,
+        ai_powered: aiResult.ai_powered || false,
+      };
+    } catch (err) {
+      console.warn('Backend AI analysis unavailable, using local scoring:', err.message);
+      scores = calculateScores({
+        timePerQuestion: finalTimePerQuestion,
+        recordedQuestions: finalRecordedQuestions,
+        totalQuestions: questions.length,
+        questionsAnswered: currentQuestionIdx + 1,
+        domain,
+        textAnswers,
+      });
+      aiFeedback = { ai_powered: false };
+    }
+    setAnalyzingResults(false);
 
     const result = {
       id: Date.now().toString(),
@@ -414,6 +573,8 @@ export default function LiveInterview() {
       scores,
       questions,
       textAnswers,
+      eyeContactScore: finalEyeContact,
+      aiFeedback,
       metrics: {
         timePerQuestion: finalTimePerQuestion.map(t => Math.round(t)),
         recordedQuestions: finalRecordedQuestions,
@@ -425,7 +586,7 @@ export default function LiveInterview() {
     history.push(result);
     localStorage.setItem('interviewHistory', JSON.stringify(history));
     navigate('/interview/result/' + result.id);
-  }, [currentQuestionIdx, domain, navigate, questions, questionStartTime, recordedQuestions, textAnswers, timePerQuestion, wasRecordingThisQuestion]);
+  }, [currentQuestionIdx, domain, navigate, questions, questionStartTime, recordedQuestions, textAnswers, timePerQuestion, wasRecordingThisQuestion, eyeContactPercent]);
 
   const handleNextQuestion = () => {
     recordCurrentQuestionMetrics();
@@ -455,17 +616,29 @@ export default function LiveInterview() {
   const progress = Math.round((currentQuestionIdx / questions.length) * 100);
   const charCount = currentText.length;
 
+  // Show analyzing overlay
+  if (analyzingResults) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ width: '60px', height: '60px', border: '3px solid var(--border-color)', borderTop: '3px solid var(--accent-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Analyzing Your Interview...</h2>
+        <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>AI is evaluating your responses across 5 categories</p>
+        <style dangerouslySetInnerHTML={{ __html: '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }' }} />
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: '1.5rem', minHeight: '100vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div className="li-container" style={{ padding: '1.5rem', minHeight: '100vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div className="li-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <div>
-          <h1 className="gradient-text" style={{ fontSize: '1.6rem', margin: 0 }}>{domain}</h1>
+          <h1 className="gradient-text li-title" style={{ fontSize: '1.6rem', margin: 0 }}>{domain}</h1>
           <p style={{ color: 'var(--text-secondary)', margin: '0.2rem 0 0', fontSize: '0.85rem' }}>
             Question {currentQuestionIdx + 1} of {questions.length}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div className="li-header-actions" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           {isRecording && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 'bold' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)', animation: 'pulse 1.5s infinite' }} />
@@ -473,19 +646,19 @@ export default function LiveInterview() {
             </div>
           )}
           <button
-            className="btn-primary"
+            className="btn-primary li-action-btn"
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: isRecording ? 'var(--danger)' : undefined }}
             onClick={() => setIsRecording(!isRecording)}
           >
             <Mic size={16} />
-            {isRecording ? 'Stop Recording' : 'Start Recording'}
+            <span className="li-btn-text">{isRecording ? 'Stop Recording' : 'Start Recording'}</span>
           </button>
           <button
-            className="btn-secondary"
+            className="btn-secondary li-action-btn"
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderColor: 'var(--danger)', color: 'var(--danger)' }}
             onClick={handleEndInterview}
           >
-            <StopCircle size={16} /> End Interview
+            <StopCircle size={16} /> <span className="li-btn-text">End Interview</span>
           </button>
         </div>
       </div>
@@ -496,10 +669,10 @@ export default function LiveInterview() {
       </div>
 
       {/* ── Main Content ── */}
-      <div style={{ display: 'flex', gap: '1.5rem', flex: 1, minHeight: 0 }}>
+      <div className="li-main-content" style={{ display: 'flex', gap: '1.5rem', flex: 1, minHeight: 0 }}>
 
         {/* Left: Video */}
-        <div className="glass-panel" style={{ flex: '0 0 340px', display: 'flex', flexDirection: 'column', padding: '1rem' }}>
+        <div className="glass-panel li-video-panel" style={{ flex: '0 0 340px', display: 'flex', flexDirection: 'column', padding: '1rem' }}>
           <div style={{ flex: 1, background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '220px' }}>
             {cameraReady ? (
               <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
@@ -512,7 +685,7 @@ export default function LiveInterview() {
             )}
           </div>
 
-          {/* Hint bar */}
+          {/* Hint bar with eye contact */}
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '0.6rem 0.75rem', marginTop: '0.6rem',
@@ -520,8 +693,13 @@ export default function LiveInterview() {
             fontSize: '0.75rem', color: 'var(--text-secondary)'
           }}>
             <span>⏱ {secondsOnQuestion}s on this question</span>
-            <span style={{ color: isRecording ? 'var(--success)' : 'var(--warning)', fontWeight: 600 }}>
-              {isRecording ? '🎙️ Recording' : '⚠️ Not recording'}
+            <span style={{ 
+              display: 'flex', alignItems: 'center', gap: '0.3rem',
+              color: eyeContactActive ? 'var(--success)' : 'var(--danger)', 
+              fontWeight: 600 
+            }}>
+              {eyeContactActive ? <Eye size={13} /> : <EyeOff size={13} />}
+              {eyeContactPercent}% eye contact
             </span>
           </div>
 
@@ -538,7 +716,7 @@ export default function LiveInterview() {
         </div>
 
         {/* Right: Question + Answer */}
-        <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '2rem', gap: '1.25rem' }}>
+        <div className="glass-panel li-qa-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '2rem', gap: '1.25rem' }}>
           {/* Question label */}
           <div>
             <span style={{ color: 'var(--accent-primary)', fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -547,7 +725,7 @@ export default function LiveInterview() {
           </div>
 
           {/* Question text */}
-          <h2 style={{ fontSize: '1.35rem', lineHeight: 1.55, margin: 0, color: 'var(--text-primary)' }}>
+          <h2 className="li-question-text" style={{ fontSize: '1.35rem', lineHeight: 1.55, margin: 0, color: 'var(--text-primary)' }}>
             {questions[currentQuestionIdx]}
           </h2>
 
@@ -565,6 +743,7 @@ export default function LiveInterview() {
               </span>
             </div>
             <textarea
+              className="li-textarea"
               value={currentText}
               onChange={handleTextChange}
               placeholder="Type your answer here… Use the STAR method: Situation, Task, Action, Result."

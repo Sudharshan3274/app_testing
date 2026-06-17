@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { Bot, Mic, Code, Award, Users, BookOpen, Trophy, ArrowRight, Sparkles } from 'lucide-react';
 
 const STATS = [
@@ -142,9 +143,13 @@ function Home() {
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <Link to="/login" className="btn-secondary">Log In</Link>
-          <Link to="/login" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <button
+            className="btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
+            onClick={() => alert('🚀 Premium — Updated Soon!')}
+          >
             Get Started <ArrowRight size={16} />
-          </Link>
+          </button>
         </div>
       </nav>
 
@@ -202,14 +207,7 @@ function Home() {
             borderRadius: '12px',
             boxShadow: '0 8px 32px rgba(99,102,241,0.35)',
           }}>
-            Start Free Today <ArrowRight size={18} />
-          </Link>
-          <Link to="/login" className="btn-secondary" style={{
-            padding: '1rem 2.5rem',
-            fontSize: '1.05rem',
-            borderRadius: '12px',
-          }}>
-            Watch Demo
+            Log In & Get Started <ArrowRight size={18} />
           </Link>
         </div>
 

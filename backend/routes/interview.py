@@ -1,36 +1,30 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-# from services.ai_service import get_ai_response
+from typing import List, Optional
+from services.ai_service import analyze_interview_with_ai
 
 router = APIRouter()
 
-class InterviewMessage(BaseModel):
-    role: str
-    content: str
 
-class InterviewRequest(BaseModel):
-    type: str # hr, tech, mixed
-    history: list[InterviewMessage]
-    new_message: str
+class InterviewAnalysisRequest(BaseModel):
+    domain: str
+    questions: List[str]
+    answers: List[str]
+    timePerQuestion: List[float] = []
+    eyeContactScore: float = 0
+    recordedQuestions: List[bool] = []
 
-@router.post("/chat")
-async def chat_with_ai(request: InterviewRequest):
-    # This would call the AI service to get the response
-    # ai_reply = await get_ai_response(request.history, request.new_message)
-    ai_reply = "This is a placeholder AI response. Tell me more about your experience."
-    return {"reply": ai_reply}
 
-@router.post("/feedback")
-async def get_interview_feedback(history: list[InterviewMessage]):
-    # Call AI service to evaluate the interview
-    feedback = {
-        "overall": 85,
-        "contentKnowledge": 80,
-        "communication": 85,
-        "confidence": 90,
-        "fluency": 82,
-        "answerStructure": 88,
-        "notes": "Excellent overall delivery! Your content knowledge and communication skills are well above average."
+@router.post("/analyze")
+async def analyze_interview(request: InterviewAnalysisRequest):
+    """AI-powered interview analysis endpoint."""
+    data = {
+        "domain": request.domain,
+        "questions": request.questions,
+        "answers": request.answers,
+        "timePerQuestion": request.timePerQuestion,
+        "eyeContactScore": request.eyeContactScore,
+        "recordedQuestions": request.recordedQuestions,
     }
-    return feedback
-
+    result = await analyze_interview_with_ai(data)
+    return result

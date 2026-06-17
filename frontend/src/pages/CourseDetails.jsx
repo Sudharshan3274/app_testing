@@ -1857,10 +1857,10 @@ export default function CourseDetails() {
   };
 
   return (
-    <div className="container" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
+    <div className="container cd-container" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
       {/* Back button */}
       <button 
-        className="btn-secondary"
+        className="btn-secondary cd-back-btn"
         style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -1876,10 +1876,10 @@ export default function CourseDetails() {
       </button>
 
       {/* Header Info */}
-      <div style={{ marginBottom: '2.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '2rem' }}>
+      <div className="cd-header" style={{ marginBottom: '2.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '2rem' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
           {/* Difficulty Badge */}
-          <span style={{ 
+          <span className="cd-badge" style={{ 
             display: 'inline-flex', 
             alignItems: 'center', 
             gap: '0.4rem', 
@@ -1895,7 +1895,7 @@ export default function CourseDetails() {
             {data.difficulty}
           </span>
           {/* Time Badge */}
-          <span style={{ 
+          <span className="cd-badge" style={{ 
             display: 'inline-flex', 
             alignItems: 'center', 
             gap: '0.4rem', 
@@ -1911,16 +1911,16 @@ export default function CourseDetails() {
             {data.estimatedTime}
           </span>
         </div>
-        <h1 className="gradient-text" style={{ fontSize: '3rem', marginBottom: '0.75rem', fontWeight: '800' }}>
+        <h1 className="gradient-text cd-title" style={{ fontSize: '3rem', marginBottom: '0.75rem', fontWeight: '800' }}>
           {data.title}
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', maxWidth: '800px', lineHeight: '1.6' }}>
+        <p className="cd-description" style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', maxWidth: '800px', lineHeight: '1.6' }}>
           {data.description}
         </p>
       </div>
 
       {/* Navigation Tabs */}
-      <div style={{ 
+      <div className="cd-tabs" style={{ 
         display: 'flex', 
         gap: '0.75rem', 
         marginBottom: '2rem', 
@@ -1932,6 +1932,7 @@ export default function CourseDetails() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
+            className="cd-tab-btn"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1954,14 +1955,14 @@ export default function CourseDetails() {
       </div>
 
       {/* Main content display box */}
-      <div className="glass-panel" style={{ minHeight: '450px', animation: 'fadeIn 0.35s ease-out' }}>
+      <div className="glass-panel cd-glass-panel" style={{ minHeight: '450px', animation: 'fadeIn 0.35s ease-out' }}>
         
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2.5rem' }}>
+          <div className="cd-overview-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2.5rem' }}>
             {/* Left learn block */}
             <div>
-              <h2 style={{ color: '#fff', fontSize: '1.5rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h2 className="cd-learn-title" style={{ color: '#fff', fontSize: '1.5rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <CheckCircle2 className="text-indigo-400" size={22} style={{ color: 'var(--accent-primary)' }} />
                 What you'll learn
               </h2>
@@ -1969,7 +1970,7 @@ export default function CourseDetails() {
                 {data.whatYoullLearn.map((item, idx) => (
                   <div key={idx} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
                     <CheckCircle2 size={16} style={{ color: '#10B981', flexShrink: 0, marginTop: '0.2rem' }} />
-                    <span style={{ color: 'var(--text-primary)', fontSize: '0.975rem', lineHeight: '1.5' }}>{item}</span>
+                    <span className="cd-learn-text" style={{ color: 'var(--text-primary)', fontSize: '0.975rem', lineHeight: '1.5' }}>{item}</span>
                   </div>
                 ))}
               </div>
@@ -1977,7 +1978,7 @@ export default function CourseDetails() {
 
             {/* Right meta block */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ 
+              <div className="cd-prereq-box" style={{ 
                 background: 'rgba(255, 255, 255, 0.02)', 
                 border: '1px solid var(--border-color)', 
                 borderRadius: '12px', 
@@ -1993,7 +1994,7 @@ export default function CourseDetails() {
                 </ul>
               </div>
 
-              <div style={{ 
+              <div className="cd-cta-box" style={{ 
                 background: 'rgba(99, 102, 241, 0.05)', 
                 border: '1px dashed var(--accent-primary)', 
                 borderRadius: '12px', 
@@ -2021,13 +2022,14 @@ export default function CourseDetails() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <BookOpen size={24} style={{ color: 'var(--accent-primary)' }} />
-              <h2 style={{ margin: 0, color: '#fff', fontSize: '1.6rem' }}>Theory & Concepts</h2>
+              <h2 className="cd-section-title" style={{ margin: 0, color: '#fff', fontSize: '1.6rem' }}>Theory & Concepts</h2>
             </div>
             
             <div style={{ marginBottom: '2.5rem' }}>
               {data.theory.split('\n\n').map((paragraph, index) => (
                 <p 
                   key={index} 
+                  className="cd-theory-text"
                   style={{ 
                     color: 'var(--text-primary)', 
                     lineHeight: '1.8', 
@@ -2044,7 +2046,7 @@ export default function CourseDetails() {
               Key Definitions
             </h3>
             
-            <div style={{ 
+            <div className="cd-def-grid" style={{ 
               display: 'grid', 
               gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
               gap: '1.25rem' 
@@ -2052,6 +2054,7 @@ export default function CourseDetails() {
               {data.definitions.map((def, idx) => (
                 <div 
                   key={idx} 
+                  className="cd-def-card"
                   style={{ 
                     background: 'rgba(255, 255, 255, 0.02)', 
                     padding: '1.5rem', 
@@ -2083,7 +2086,7 @@ export default function CourseDetails() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <CodeIcon size={24} style={{ color: 'var(--accent-primary)' }} />
-              <h2 style={{ margin: 0, color: '#fff', fontSize: '1.6rem' }}>Syntax & Examples</h2>
+              <h2 className="cd-section-title" style={{ margin: 0, color: '#fff', fontSize: '1.6rem' }}>Syntax & Examples</h2>
             </div>
 
             {/* Basic Syntax Section */}
@@ -2092,6 +2095,7 @@ export default function CourseDetails() {
                 <h3 style={{ color: 'var(--text-primary)', fontSize: '1.1rem', margin: 0 }}>Basic Syntax Structure</h3>
                 <button 
                   onClick={() => handleCopyCode(data.syntax, 'syntax')}
+                  className="cd-copy-btn"
                   style={{
                     background: 'transparent',
                     color: 'var(--text-secondary)',
@@ -2107,7 +2111,7 @@ export default function CourseDetails() {
                   {copiedStates['syntax'] ? 'Copied!' : 'Copy'}
                 </button>
               </div>
-              <pre style={{ 
+              <pre className="cd-code-block" style={{ 
                 background: '#070a13', 
                 padding: '1.5rem', 
                 borderRadius: '10px', 
@@ -2115,7 +2119,7 @@ export default function CourseDetails() {
                 border: '1px solid var(--border-color)',
                 boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)'
               }}>
-                <code style={{ color: '#38BDF8', fontFamily: '"Fira Code", monospace', fontSize: '0.95rem', lineHeight: '1.6' }}>
+                <code className="cd-code-text" style={{ color: '#38BDF8', fontFamily: '"Fira Code", monospace', fontSize: '0.95rem', lineHeight: '1.6' }}>
                   {data.syntax}
                 </code>
               </pre>
@@ -2126,7 +2130,7 @@ export default function CourseDetails() {
               <h3 style={{ color: 'var(--text-primary)', fontSize: '1.2rem', marginBottom: '1rem' }}>Practical Implementations</h3>
               
               {/* Tabs for Examples */}
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.2rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.2rem', overflowX: 'auto', scrollbarWidth: 'none' }}>
                 {data.codeExamples.map((ex, idx) => (
                   <button
                     key={idx}
@@ -2134,6 +2138,7 @@ export default function CourseDetails() {
                       setActiveExampleIndex(idx);
                       // Clear previous copied state just in case
                     }}
+                    className="cd-code-example-tab"
                     style={{
                       background: 'transparent',
                       color: activeExampleIndex === idx ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -2143,7 +2148,9 @@ export default function CourseDetails() {
                       cursor: 'pointer',
                       fontSize: '0.95rem',
                       fontWeight: activeExampleIndex === idx ? '600' : '400',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap',
+                      fontFamily: 'inherit'
                     }}
                   >
                     {ex.title}
@@ -2173,7 +2180,7 @@ export default function CourseDetails() {
                     {copiedStates[`ex-${activeExampleIndex}`] ? 'Copied!' : 'Copy Code'}
                   </button>
                 </div>
-                <pre style={{ 
+                <pre className="cd-code-block" style={{ 
                   background: '#070a13', 
                   padding: '2rem 1.5rem 1.5rem 1.5rem', 
                   borderRadius: '10px', 
@@ -2181,7 +2188,7 @@ export default function CourseDetails() {
                   border: '1px solid var(--border-color)',
                   boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
                 }}>
-                  <code style={{ color: '#e2e8f0', fontFamily: '"Fira Code", monospace', fontSize: '0.95rem', lineHeight: '1.6' }}>
+                  <code className="cd-code-text" style={{ color: '#e2e8f0', fontFamily: '"Fira Code", monospace', fontSize: '0.95rem', lineHeight: '1.6' }}>
                     {data.codeExamples[activeExampleIndex].code}
                   </code>
                 </pre>
@@ -2195,7 +2202,7 @@ export default function CourseDetails() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
               <Map size={24} style={{ color: 'var(--accent-primary)' }} />
-              <h2 style={{ margin: 0, color: '#fff', fontSize: '1.6rem' }}>Learning Roadmap</h2>
+              <h2 className="cd-section-title" style={{ margin: 0, color: '#fff', fontSize: '1.6rem' }}>Learning Roadmap</h2>
             </div>
             
             <div style={{ position: 'relative', paddingLeft: '2.5rem' }}>
@@ -2236,10 +2243,10 @@ export default function CourseDetails() {
                     }}>
                       {step.step}
                     </span>
-                    <h3 style={{ margin: 0, color: '#fff', fontSize: '1.25rem' }}>
+                    <h3 className="cd-roadmap-title" style={{ margin: 0, color: '#fff', fontSize: '1.25rem' }}>
                       {step.title}
                     </h3>
-                    <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.975rem', lineHeight: '1.6', maxWidth: '750px' }}>
+                    <p className="cd-roadmap-desc" style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.975rem', lineHeight: '1.6', maxWidth: '750px' }}>
                       {step.description}
                     </p>
                   </div>
@@ -2254,7 +2261,7 @@ export default function CourseDetails() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <MessageSquare size={24} style={{ color: 'var(--accent-primary)' }} />
-              <h2 style={{ margin: 0, color: '#fff', fontSize: '1.6rem' }}>Interview Q&A</h2>
+              <h2 className="cd-section-title" style={{ margin: 0, color: '#fff', fontSize: '1.6rem' }}>Interview Q&A</h2>
             </div>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.95rem' }}>
               Click on a question to expand and review its comprehensive educational answer.
@@ -2276,6 +2283,7 @@ export default function CourseDetails() {
                   >
                     {/* Header trigger */}
                     <button
+                      className="cd-qa-question"
                       onClick={() => handleToggleQA(idx)}
                       style={{
                         width: '100%',
@@ -2290,7 +2298,8 @@ export default function CourseDetails() {
                         fontWeight: '600',
                         border: 'none',
                         cursor: 'pointer',
-                        gap: '1rem'
+                        gap: '1rem',
+                        fontFamily: 'inherit'
                       }}
                     >
                       <span>{idx + 1}. {qaItem.q}</span>

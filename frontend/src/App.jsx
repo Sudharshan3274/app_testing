@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import Home from './pages/Home';
@@ -13,7 +13,6 @@ import LiveInterview from './pages/LiveInterview';
 import InterviewResult from './pages/InterviewResult';
 import ResumeAnalysis from './pages/ResumeAnalysis';
 import Challenges from './pages/Challenges';
-import ScannerExample from './pages/ScannerExample';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('authToken');
@@ -29,7 +28,6 @@ const NAV_ITEMS = [
   { path: '/courses', label: '📚 Courses' },
   { path: '/history', label: '📊 History' },
   { path: '/resume', label: '📄 Resume Analysis' },
-  { path: '/scanner', label: '📷 QR Scanner' },
   { path: '/challenges', label: '💻 Coding Challenges' },
 ];
 
@@ -123,7 +121,6 @@ function AppContent() {
           <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
           <Route path="/courses/:courseId" element={<ProtectedRoute><CourseDetails /></ProtectedRoute>} />
           <Route path="/resume" element={<ProtectedRoute><ResumeAnalysis /></ProtectedRoute>} />
-          <Route path="/scanner" element={<ProtectedRoute><ScannerExample /></ProtectedRoute>} />
           <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
         </Routes>
       </main>
@@ -133,9 +130,9 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AppContent />
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
