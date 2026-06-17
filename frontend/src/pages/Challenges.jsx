@@ -1497,7 +1497,8 @@ export default function Challenges() {
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
   const [code, setCode] = useState(CHALLENGES[0].starterCode);
   const [testResults, setTestResults] = useState(null);
-  const [executionMeta, setExecutionMeta] = useState(null); // { status, time, memory, stderr, compile_output, stdout }
+  const [executionMeta, setExecutionMeta] = useState(null);
+  const [viewMode, setViewMode] = useState('board'); // { status, time, memory, stderr, compile_output, stdout }
   const [outputTab, setOutputTab] = useState('output'); // 'output' | 'errors'
   const [solvedIds, setSolvedIds] = useState([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -1527,30 +1528,23 @@ export default function Challenges() {
     setExecutionMeta(null);
   };
 
-  // ── Run code via Judge0 CE API ──
-  const JUDGE0_API = 'https://judge0-ce.p.sulu.sh';
+  // ── Run code via Local Compiler API ──
+  const LOCAL_COMPILER_API = 'http://localhost:8000/api/compiler/run';
 
-  const runViaJudge0 = async (codeToRun, langId) => {
-    const langConfig = LANGUAGES.find(l => l.id === langId);
-    if (!langConfig) throw new Error('Unknown language');
-
-    // Submit code
-    const submitRes = await fetch(`${JUDGE0_API}/submissions?base64_encoded=false&wait=true`, {
+  const runViaCompiler = async (codeToRun, langId) => {
+    const submitRes = await fetch(LOCAL_COMPILER_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         source_code: codeToRun,
-        language_id: langConfig.judge0Id,
-        stdin: '',
-        cpu_time_limit: 5,
-        wall_time_limit: 10,
-        memory_limit: 128000
+        language: langId,
+        stdin: ''
       })
     });
 
     if (!submitRes.ok) {
       const errText = await submitRes.text();
-      throw new Error(`Judge0 API error (${submitRes.status}): ${errText}`);
+      throw new Error(`Compiler API error (${submitRes.status}): ${errText}`);
     }
     return await submitRes.json();
   };
@@ -1590,7 +1584,7 @@ export default function Challenges() {
   const handleRunTests = async () => {
     setRunning(true);
     setExecutionMeta(null);
-    setOutputTab('output');
+    
     try {
       if (selectedLanguage === 'javascript') {
         const results = runJSLocally();
@@ -1599,7 +1593,7 @@ export default function Challenges() {
         setRunning(false);
         return results;
       } else {
-        const result = await runViaJudge0(code, selectedLanguage);
+        const result = await runViaCompiler(code, selectedLanguage);
         const statusInfo = JUDGE0_STATUS[result.status?.id] || { label: 'Unknown', color: 'var(--text-secondary)', type: 'error' };
         
         const meta = {
@@ -1616,7 +1610,7 @@ export default function Challenges() {
 
         // If there are compile errors or runtime errors, switch to errors tab
         if (statusInfo.type === 'compile_error' || (statusInfo.type === 'error' && (result.stderr || result.compile_output))) {
-          setOutputTab('errors');
+          
         }
 
         if (statusInfo.type === 'compile_error') {
@@ -1666,7 +1660,7 @@ export default function Challenges() {
         actual: friendlyMessage.includes('fetch') ? 'Network error — check your internet connection' : friendlyMessage 
       }]);
       setExecutionMeta({ status: { id: 13, description: 'Internal Error' }, statusInfo: JUDGE0_STATUS[13], time: 'N/A', memory: 'N/A', stdout: '', stderr: friendlyMessage, compile_output: '' });
-      setOutputTab('errors');
+      
       setRunning(false);
       return null;
     }
@@ -1728,49 +1722,42 @@ export default function Challenges() {
 
   return (
     <div className="ch-container" style={{ display: 'flex', height: '100vh', background: 'var(--bg-primary)' }}>
-      {/* Challenges Left Sidebar List */}
-      <div className="ch-sidebar" style={{
-        width: '380px',
-        borderRight: '1px solid var(--border-color)',
-        padding: '1.5rem 1.25rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
-        background: 'var(--bg-secondary)',
-        overflowY: 'auto',
-        height: '100vh'
-      }}>
-        <h2 className="gradient-text" style={{ fontSize: '1.5rem', margin: 0, fontWeight: 700 }}>Coding Board</h2>
+      {viewMode === 'board' ? (
+
+      <div className="ch-board-view" style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+        {/* Dashboard Board View */}
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <h2 className="gradient-text" style={{ fontSize: '2rem', marginBottom: '1.5rem', fontWeight: 700 }}>Coding Board</h2>
 
         {/* Progress Counter card */}
         <div style={{
           background: 'rgba(255, 255, 255, 0.02)',
           border: '1px solid var(--border-color)',
           borderRadius: '12px',
-          padding: '0.8rem 1rem',
-          fontSize: '0.8rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.4rem',
+          padding: '1.5rem',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '1.5rem',
+          marginBottom: '2rem',
           color: 'var(--text-secondary)'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Easy Progress:</span>
-            <span style={{ color: 'var(--success)', fontWeight: 600 }}>{solvedEasy} / {totalEasy} solved</span>
+          <div>
+            <div style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>Easy Progress</div>
+            <div style={{ color: 'var(--success)', fontSize: '1.5rem', fontWeight: 700 }}>{solvedEasy} <span style={{fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 400}}>/ {totalEasy}</span></div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Medium Progress:</span>
-            <span style={{ color: 'var(--warning)', fontWeight: 600 }}>{solvedMedium} / {totalMedium} solved</span>
+          <div>
+            <div style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>Medium Progress</div>
+            <div style={{ color: 'var(--warning)', fontSize: '1.5rem', fontWeight: 700 }}>{solvedMedium} <span style={{fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 400}}>/ {totalMedium}</span></div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Hard Progress:</span>
-            <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{solvedHard} / {totalHard} solved</span>
+          <div>
+            <div style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>Hard Progress</div>
+            <div style={{ color: 'var(--danger)', fontSize: '1.5rem', fontWeight: 700 }}>{solvedHard} <span style={{fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 400}}>/ {totalHard}</span></div>
           </div>
         </div>
 
         {/* Search Input bar */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <Search size={16} color="var(--text-secondary)" style={{ position: 'absolute', left: '10px' }} />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <Search size={20} color="var(--text-secondary)" style={{ position: 'absolute', left: '16px' }} />
           <input
             type="text"
             placeholder="Search challenges by title..."
@@ -1778,20 +1765,20 @@ export default function Challenges() {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
               width: '100%',
-              padding: '0.6rem 0.8rem 0.6rem 2.2rem',
-              borderRadius: '8px',
+              padding: '1rem 1rem 1rem 3rem',
+              borderRadius: '12px',
               background: 'rgba(255, 255, 255, 0.03)',
               border: '1px solid var(--border-color)',
               color: '#fff',
               outline: 'none',
-              fontSize: '0.85rem',
+              fontSize: '1rem',
               transition: 'all 0.2s ease'
             }}
           />
         </div>
 
         {/* Filter tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', gap: '0.25rem' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', gap: '1rem', marginBottom: '1.5rem' }}>
           {['All', 'Easy', 'Medium', 'Hard', 'Top 50'].map(tab => {
             const isActive = activeTab === tab;
             return (
@@ -1818,9 +1805,9 @@ export default function Challenges() {
         </div>
 
         {/* Category tags */}
-        <div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.4rem', fontWeight: 600 }}>Filter by Category:</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 600 }}>Filter by Category:</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {CATEGORIES.map(cat => {
               const isSelected = selectedCategory === cat;
               return (
@@ -1845,8 +1832,8 @@ export default function Challenges() {
           </div>
         </div>
 
-        {/* List of Filtered Challenges */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+        {/* List of Filtered Challenges Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
           {filteredChallenges.length === 0 ? (
             <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textAlign: 'center', padding: '2rem 0' }}>
               No challenges match your criteria.
@@ -1858,36 +1845,58 @@ export default function Challenges() {
               return (
                 <div
                   key={ch.id}
-                  onClick={() => setSelectedChallenge(ch)}
+                  onClick={() => {
+                    setSelectedChallenge(ch);
+                    setViewMode('editor');
+                  }}
                   style={{
-                    padding: '0.85rem',
-                    borderRadius: '12px',
+                    padding: '1.25rem',
+                    borderRadius: '16px',
                     cursor: 'pointer',
-                    border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'var(--border-color)'}`,
-                    background: isSelected ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255, 255, 255, 0.01)',
+                    border: '1px solid var(--border-color)',
+                    background: 'rgba(255, 255, 255, 0.01)',
                     transition: 'all 0.2s ease',
-                    position: 'relative'
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = 'rgba(99, 102, 241, 0.08)';
+                    e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.01)';
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: isSelected ? '#fff' : 'var(--text-primary)', fontWeight: 600 }}>{ch.title}</h4>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: ch.difficultyColor }}>{ch.difficulty}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#fff', fontWeight: 600, flex: 1 }}>{ch.title}</h4>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: ch.difficultyColor, padding: '0.2rem 0.5rem', background: `${ch.difficultyColor}15`, borderRadius: '4px' }}>
+                      {ch.difficulty}
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{ch.points} pts • <span style={{ color: 'var(--text-secondary)', opacity: 0.8 }}>{ch.category}</span></span>
-                    {isSolved && <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.75rem', fontWeight: 600 }}>
-                      <CheckCircle2 size={12} /> Solved
-                    </span>}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      <span style={{ color: '#fff', fontWeight: 600 }}>{ch.points}</span> pts • <span style={{ opacity: 0.8 }}>{ch.category}</span>
+                    </span>
+                    {isSolved && (
+                      <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', fontWeight: 600 }}>
+                        <CheckCircle2 size={16} /> Solved
+                      </span>
+                    )}
                   </div>
                 </div>
               );
             })
           )}
         </div>
+        </div>
       </div>
-
-      {/* Main Workspace */}
+      ) : (
       <div className="ch-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Main Workspace (Editor Mode) */}
         {/* Workspace Top Header */}
         <div className="ch-header" style={{
           padding: '1rem 1.5rem',
@@ -1900,7 +1909,16 @@ export default function Challenges() {
           gap: '0.75rem'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <h1 className="ch-title" style={{ fontSize: '1.3rem', margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button 
+              onClick={() => setViewMode('board')}
+              style={{
+                background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
+                padding: '0.45rem 0.75rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                fontSize: '0.85rem', fontWeight: 600
+              }}>
+              ← Coding Board
+            </button>
+            <h1 className="ch-title" style={{ fontSize: '1.3rem', margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem' }}>
               <Code2 size={20} color="var(--accent-primary)" /> {selectedChallenge.title}
             </h1>
             {/* Language Selector */}
@@ -2054,35 +2072,35 @@ export default function Challenges() {
                 gap: '0.4rem'
               }}>
                 <div style={{ display: 'flex', gap: 0 }}>
-                  {['output', 'errors'].map(tab => (
-                    <button key={tab} onClick={() => setOutputTab(tab)} style={{
-                      padding: '0.6rem 1rem',
-                      background: 'transparent',
-                      border: 'none',
-                      borderBottom: outputTab === tab ? '2px solid var(--accent-primary)' : '2px solid transparent',
-                      color: outputTab === tab ? '#fff' : 'var(--text-secondary)',
+                  <div style={{
+                    padding: '0.6rem 1rem',
+                    background: 'transparent',
+                    borderBottom: '2px solid var(--accent-primary)',
+                    color: '#fff',
+                    fontFamily: 'monospace',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    display: 'flex', alignItems: 'center', gap: '0.4rem'
+                  }}>
+                    <Terminal size={13} /> OUTPUT
+                  </div>
+                  {/* Errors indicator dot */}
+                  {executionMeta && (executionMeta.stderr || executionMeta.compile_output) && (
+                    <div style={{
+                      padding: '0.6rem 0.75rem',
+                      display: 'flex', alignItems: 'center', gap: '0.4rem',
+                      color: '#fca5a5',
                       fontFamily: 'monospace',
                       fontSize: '0.8rem',
-                      fontWeight: outputTab === tab ? 600 : 400,
-                      cursor: 'pointer',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      display: 'flex', alignItems: 'center', gap: '0.4rem',
-                      transition: 'all 0.15s'
+                      letterSpacing: '0.05em'
                     }}>
-                      {tab === 'output' ? <Terminal size={13} /> : <AlertOctagon size={13} />}
-                      {tab}
-                      {tab === 'errors' && executionMeta && (executionMeta.stderr || executionMeta.compile_output) && (
-                        <span style={{
-                          background: 'var(--danger)',
-                          color: '#fff',
-                          borderRadius: '50%',
-                          width: '6px', height: '6px',
-                          display: 'inline-block'
-                        }} />
-                      )}
-                    </button>
-                  ))}
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--danger)', display: 'inline-block' }} />
+                      Errors
+                    </div>
+                  )}
                 </div>
                 {/* Execution Stats */}
                 {executionMeta && (
@@ -2124,12 +2142,82 @@ export default function Challenges() {
                   <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontFamily: 'monospace' }}>
                     <Terminal size={14} /> Press "Run Tests" to compile and execute your code.
                   </div>
-                ) : outputTab === 'output' ? (
-                  /* ── OUTPUT TAB ── */
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                    {/* Raw stdout display */}
+                ) : (
+                  /* ── UNIFIED OUTPUT PANEL ── */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+                    {/* Compilation errors — show at top if present */}
+                    {executionMeta?.compile_output && (
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--danger)', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                          ⚠ Compilation Error
+                        </div>
+                        <pre style={{
+                          background: 'rgba(239, 68, 68, 0.06)',
+                          border: '1px solid rgba(239, 68, 68, 0.15)',
+                          borderRadius: '6px',
+                          padding: '0.75rem',
+                          fontFamily: 'monospace',
+                          fontSize: '0.8rem',
+                          color: '#fca5a5',
+                          lineHeight: 1.6,
+                          margin: 0,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          maxHeight: '200px',
+                          overflowY: 'auto'
+                        }}>{executionMeta.compile_output}</pre>
+                      </div>
+                    )}
+
+                    {/* Runtime errors / stderr — show at top if present */}
+                    {executionMeta?.stderr && (
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: '#F59E0B', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                          ⚠ Runtime Error / stderr
+                        </div>
+                        <pre style={{
+                          background: 'rgba(245, 158, 11, 0.06)',
+                          border: '1px solid rgba(245, 158, 11, 0.15)',
+                          borderRadius: '6px',
+                          padding: '0.75rem',
+                          fontFamily: 'monospace',
+                          fontSize: '0.8rem',
+                          color: '#fcd34d',
+                          lineHeight: 1.6,
+                          margin: 0,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          maxHeight: '200px',
+                          overflowY: 'auto'
+                        }}>{executionMeta.stderr}</pre>
+                      </div>
+                    )}
+
+                    {/* Message (API/system error like 404) */}
+                    {executionMeta?.message && (
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--danger)', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                          ⚠ Error
+                        </div>
+                        <pre style={{
+                          background: 'rgba(239, 68, 68, 0.06)',
+                          border: '1px solid rgba(239, 68, 68, 0.15)',
+                          borderRadius: '6px',
+                          padding: '0.75rem',
+                          fontFamily: 'monospace',
+                          fontSize: '0.8rem',
+                          color: '#fca5a5',
+                          lineHeight: 1.6,
+                          margin: 0,
+                          whiteSpace: 'pre-wrap'
+                        }}>{executionMeta.message}</pre>
+                      </div>
+                    )}
+
+                    {/* Stdout — only show if there is output */}
                     {executionMeta?.stdout && (
-                      <div style={{ marginBottom: '0.75rem' }}>
+                      <div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>stdout</div>
                         <pre style={{
                           background: 'rgba(255,255,255,0.02)',
@@ -2148,6 +2236,7 @@ export default function Challenges() {
                         }}>{executionMeta.stdout}</pre>
                       </div>
                     )}
+
                     {/* Test case results */}
                     {testResults && testResults.map((res, i) => (
                       <div
@@ -2176,80 +2265,11 @@ export default function Challenges() {
                         </div>
                       </div>
                     ))}
-                  </div>
-                ) : (
-                  /* ── ERRORS TAB ── */
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {/* Compilation errors */}
-                    {executionMeta?.compile_output && (
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--danger)', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                          ⚠ Compilation Error
-                        </div>
-                        <pre style={{
-                          background: 'rgba(239, 68, 68, 0.06)',
-                          border: '1px solid rgba(239, 68, 68, 0.15)',
-                          borderRadius: '6px',
-                          padding: '0.75rem',
-                          fontFamily: 'monospace',
-                          fontSize: '0.8rem',
-                          color: '#fca5a5',
-                          lineHeight: 1.6,
-                          margin: 0,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          maxHeight: '200px',
-                          overflowY: 'auto'
-                        }}>{executionMeta.compile_output}</pre>
-                      </div>
-                    )}
-                    {/* Runtime errors / stderr */}
-                    {executionMeta?.stderr && (
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: '#F59E0B', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                          ⚠ Runtime Error / stderr
-                        </div>
-                        <pre style={{
-                          background: 'rgba(245, 158, 11, 0.06)',
-                          border: '1px solid rgba(245, 158, 11, 0.15)',
-                          borderRadius: '6px',
-                          padding: '0.75rem',
-                          fontFamily: 'monospace',
-                          fontSize: '0.8rem',
-                          color: '#fcd34d',
-                          lineHeight: 1.6,
-                          margin: 0,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          maxHeight: '200px',
-                          overflowY: 'auto'
-                        }}>{executionMeta.stderr}</pre>
-                      </div>
-                    )}
-                    {/* Message (if any) */}
-                    {executionMeta?.message && (
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          System Message
-                        </div>
-                        <pre style={{
-                          background: 'rgba(255,255,255,0.02)',
-                          border: '1px solid rgba(255,255,255,0.06)',
-                          borderRadius: '6px',
-                          padding: '0.75rem',
-                          fontFamily: 'monospace',
-                          fontSize: '0.8rem',
-                          color: 'var(--text-secondary)',
-                          lineHeight: 1.6,
-                          margin: 0,
-                          whiteSpace: 'pre-wrap'
-                        }}>{executionMeta.message}</pre>
-                      </div>
-                    )}
-                    {/* No errors */}
-                    {(!executionMeta?.compile_output && !executionMeta?.stderr && !executionMeta?.message) && (
-                      <div style={{ color: 'var(--success)', fontFamily: 'monospace', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <CheckCircle2 size={14} /> No errors. Code compiled and executed successfully.
+
+                    {/* All clear — show success message */}
+                    {!executionMeta?.compile_output && !executionMeta?.stderr && !executionMeta?.message && !executionMeta?.stdout && !testResults && (
+                      <div style={{ color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                        Press "Run Tests" to compile and execute your code.
                       </div>
                     )}
                   </div>
@@ -2260,6 +2280,7 @@ export default function Challenges() {
         </div>
       </div>
 
+      )}
       {/* Success Modal */}
       {showSuccessModal && (
         <div style={{

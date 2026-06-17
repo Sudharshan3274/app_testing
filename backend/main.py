@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import connect_to_mongo, close_mongo_connection
-from routes import auth, interview, resume
+from routes import auth, interview, resume, compiler
 
 app = FastAPI(title="Interviu AI API")
 
@@ -25,6 +25,7 @@ async def shutdown_db_client():
 # Include Routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(interview.router, prefix="/api/interview", tags=["Interview"])
+app.include_router(compiler.router, prefix="/api/compiler", tags=["Compiler"])
 app.include_router(resume.router)
 
 @app.get("/")
