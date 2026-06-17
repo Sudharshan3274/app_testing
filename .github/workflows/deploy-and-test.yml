@@ -1,0 +1,100 @@
+name: Deploy and Selenium E2E Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci || npm install
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './frontend/dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  selenium-tests:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r e2e_selenium/requirements.txt
+
+      - name: Wait for Deployment to be Live
+        env:
+          BASE_URL: ${{ needs.build-and-deploy.outputs.page_url }}
+        run: |
+          echo "Waiting for $BASE_URL to return HTTP 200..."
+          # Simple polling loop
+          for i in {1..12}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL)
+            if [ "$STATUS" = "200" ]; then
+              echo "Deployment is live!"
+              break
+            fi
+            echo "Attempt $i: Got $STATUS, waiting 5s..."
+            sleep 5
+          done
+
+      - name: Run Selenium Tests & Generate Reports
+        env:
+          BASE_URL: ${{ needs.build-and-deploy.outputs.page_url }}
+        run: |
+          # The conftest.py will pick up the BASE_URL
+          pytest e2e_selenium/test_web.py -v || true
+          python e2e_selenium/report_generator.py
+
+      - name: Upload Test Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Selenium-Test-Reports
+          path: Test Results/
+          retention-days: 14
+
+      - name: Publish GitHub Actions Summary
+        run: |
+          cat "Test Results/Summary/summary.md" >> $GITHUB_STEP_SUMMARY

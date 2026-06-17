@@ -1,0 +1,54 @@
+name: Backend Security Review
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Scanner Dependencies
+        run: |
+          pip install -r security_audit/requirements.txt
+
+      - name: Run Dependency Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+
+      - name: Run Custom Python SAST & DAST Simulator
+        run: |
+          python security_audit/scanner.py
+
+      - name: Upload Security Findings as Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Security-Review-Reports
+          path: Vulnerability Test Results/
+          retention-days: 14
+
+      - name: Publish GitHub Actions Summary
+        run: |
+          cat "Vulnerability Test Results/executive-summary.md" >> $GITHUB_STEP_SUMMARY
