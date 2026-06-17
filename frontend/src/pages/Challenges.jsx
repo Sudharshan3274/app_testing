@@ -1557,6 +1557,14 @@ export default function Challenges() {
 
   // ── JavaScript client-side execution (existing logic) ──
   const runJSLocally = () => {
+    // Check for common typo characters (smart quotes) before compiling
+    if (code.includes('“') || code.includes('”')) {
+      throw new Error('Smart quotes (“ or ”) detected. Please replace them with standard straight quotes (").');
+    }
+    if (code.includes('‘') || code.includes('’')) {
+      throw new Error('Smart quotes (‘ or ’) detected. Please replace them with standard straight quotes (\').');
+    }
+
     const fnMatch = selectedChallenge.starterCode.match(/function (\w+)/);
     const userFnName = fnMatch ? fnMatch[1] : 'solution';
     
@@ -1647,13 +1655,17 @@ export default function Challenges() {
         return null;
       }
     } catch (err) {
+      let friendlyMessage = err.message;
+      if (friendlyMessage.includes('Invalid or unexpected token') || friendlyMessage.includes('Unexpected token')) {
+        friendlyMessage = `Syntax Error: ${err.message}. Please check for typos, copy-paste errors, unmatched brackets, or smart quotes (“ or ”).`;
+      }
       setTestResults([{ 
         passed: false, 
         input: 'Execution', 
         expected: 'Successful run', 
-        actual: err.message.includes('fetch') ? 'Network error — check your internet connection' : err.message 
+        actual: friendlyMessage.includes('fetch') ? 'Network error — check your internet connection' : friendlyMessage 
       }]);
-      setExecutionMeta({ status: { id: 13, description: 'Internal Error' }, statusInfo: JUDGE0_STATUS[13], time: 'N/A', memory: 'N/A', stdout: '', stderr: err.message, compile_output: '' });
+      setExecutionMeta({ status: { id: 13, description: 'Internal Error' }, statusInfo: JUDGE0_STATUS[13], time: 'N/A', memory: 'N/A', stdout: '', stderr: friendlyMessage, compile_output: '' });
       setOutputTab('errors');
       setRunning(false);
       return null;
