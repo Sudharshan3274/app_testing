@@ -222,13 +222,22 @@ export default function ResumeAnalysis() {
       }
       
       const analysis = await response.json();
+      
+      if (analysis.error) {
+        throw new Error(analysis.error);
+      }
+      
+      if (!analysis.categories || !analysis.stats) {
+        throw new Error("Invalid analysis format received from server.");
+      }
+      
       analysis.analyzedAt = new Date().toISOString();
       
       setResult(analysis);
       localStorage.setItem('resumeATSResult', JSON.stringify(analysis));
       localStorage.setItem('resumeATSScore', analysis.overall.toString());
     } catch (err) {
-      console.warn('Backend connection failed, falling back to local analysis:', err);
+      console.warn('Backend connection or analysis failed, falling back to local analysis:', err);
       try {
         const text = await readFileAsText(selectedFile);
         const analysis = analyzeResume(text);
@@ -240,7 +249,7 @@ export default function ResumeAnalysis() {
         localStorage.setItem('resumeATSScore', analysis.overall.toString());
       } catch (localErr) {
         console.error('Local analysis also failed:', localErr);
-        alert('Could not analyze the file. Please make sure the file is not corrupted.');
+        alert(err.message && err.message !== "Server analysis failed" ? err.message : 'Could not analyze the file. Please make sure the file is not corrupted.');
       }
     } finally {
       setAnalyzing(false);
