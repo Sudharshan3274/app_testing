@@ -1,4 +1,4 @@
-name: Android Appium E2E Tests
+name: Android Appium E2E Tests — 420 Test Cases
 
 on:
   push:

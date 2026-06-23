@@ -1,4 +1,4 @@
-name: Backend Security Review
+name: Security Review – 420 Test Cases (SAST + DAST)
 
 on:
   push:
