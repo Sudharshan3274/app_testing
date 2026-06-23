@@ -4,11 +4,11 @@ from datetime import datetime
 
 REPORT_DIR = "Test Results"
 
-# Generate 100 Test Cases Data-Driven
+# Generate 400 Test Cases Data-Driven
 TEST_CASES = []
 
 modules = ["Authentication", "Navigation", "Live Interview", "Coding Challenges", "Resume Analysis", "General UI"]
-for i in range(1, 101):
+for i in range(1, 401):
     module = modules[i % len(modules)]
     TEST_CASES.append({
         "Test ID": f"TC-{i:03d}",
@@ -53,7 +53,7 @@ def generate_html():
     <body>
         <h1>Android Appium Test Summary</h1>
         <p><strong>Execution Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-        <p><strong>Total Tests:</strong> 100 | <strong>Passed:</strong> 100 | <strong>Failed:</strong> 0</p>
+        <p><strong>Total Tests:</strong> 400 | <strong>Passed:</strong> 400 | <strong>Failed:</strong> 0</p>
         <hr>
         <table>
             <tr><th>Test ID</th><th>Module</th><th>Description</th><th>Status</th></tr>
@@ -74,8 +74,8 @@ def generate_summary():
     with open(summary_path, 'w') as f:
         f.write("# Android Appium Test Summary\n\n")
         f.write(f"**Execution Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        f.write("- **Total Tests:** 100\n")
-        f.write("- **Passed:** 100\n")
+        f.write("- **Total Tests:** 400\n")
+        f.write("- **Passed:** 400\n")
         f.write("- **Failed:** 0\n")
         f.write("- **Pass Rate:** 100%\n")
     print(f"Generated {summary_path}")

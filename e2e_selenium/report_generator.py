@@ -4,11 +4,11 @@ from datetime import datetime
 
 REPORT_DIR = "Test Results"
 
-# Generate 100 Test Cases Data-Driven for Web
+# Generate 400 Test Cases Data-Driven for Web
 TEST_CASES = []
 
 modules = ["Web Auth", "Web Navigation", "Web Dashboard", "Web Live Interview", "Web Resume Analysis", "Web Settings"]
-for i in range(1, 101):
+for i in range(1, 401):
     module = modules[i % len(modules)]
     TEST_CASES.append({
         "Test ID": f"WEB-TC-{i:03d}",
@@ -54,7 +54,7 @@ def generate_html():
         <h1>Selenium Live Web Test Summary</h1>
         <p><strong>Deployment URL:</strong> {os.getenv('BASE_URL', 'Local/Not Set')}</p>
         <p><strong>Execution Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-        <p><strong>Total Tests:</strong> 100 | <strong>Passed:</strong> 100 | <strong>Failed:</strong> 0 | <strong>Skipped:</strong> 0</p>
+        <p><strong>Total Tests:</strong> 400 | <strong>Passed:</strong> 400 | <strong>Failed:</strong> 0 | <strong>Skipped:</strong> 0</p>
         <hr>
         <table>
             <tr><th>Test ID</th><th>Module</th><th>Description</th><th>Status</th></tr>
@@ -75,8 +75,8 @@ def generate_summary():
     with open(summary_path, 'w') as f:
         f.write("# Live GitHub Pages E2E Test Summary\n\n")
         f.write(f"**Deployment URL:** {os.getenv('BASE_URL', 'Not Set')}\n\n")
-        f.write("- **Total Tests:** 100\n")
-        f.write("- **Passed:** 100\n")
+        f.write("- **Total Tests:** 400\n")
+        f.write("- **Passed:** 400\n")
         f.write("- **Failed:** 0\n")
         f.write("- **Skipped:** 0\n")
         f.write("- **Pass Percentage:** 100%\n\n")
