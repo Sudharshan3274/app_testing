@@ -6,5 +6,5 @@ import react from '@vitejs/plugin-react'
 // For GitHub Pages:              leave unset (base stays '/app_test/')
 export default defineConfig({
   plugins: [react()],
-  base: '/app_test/',
+  base: '/app_testing/',
 })
