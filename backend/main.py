@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import connect_to_mongo, close_mongo_connection
-from routes import auth, interview, resume, compiler
+from routes import interview, resume, compiler
 
 app = FastAPI(title="Interviu AI API")
 
@@ -14,16 +13,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-async def startup_db_client():
-    await connect_to_mongo()
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    await close_mongo_connection()
+# No local DB startup needed anymore since we use Firebase
 
 # Include Routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+# Auth is handled natively on the frontend via Firebase
 app.include_router(interview.router, prefix="/api/interview", tags=["Interview"])
 app.include_router(compiler.router, prefix="/api/compiler", tags=["Compiler"])
 app.include_router(resume.router)

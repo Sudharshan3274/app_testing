@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, FileText, CheckCircle, AlertTriangle, XCircle, TrendingUp, Award, Briefcase, GraduationCap, Code, Mail, BarChart3, RefreshCw } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, XCircle, TrendingUp, Award, Briefcase, GraduationCap, Code, Mail, BarChart3, RefreshCw, Brain, Sparkles } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
+
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -185,10 +186,90 @@ export default function ResumeAnalysis() {
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [matching, setMatching] = useState(false);
+  const [jobDescription, setJobDescription] = useState(() => {
+    return localStorage.getItem('resumeATSJobDescription') || '';
+  });
   const [result, setResult] = useState(() => {
     const saved = localStorage.getItem('resumeATSResult');
     return saved ? JSON.parse(saved) : null;
   });
+  const [matchResult, setMatchResult] = useState(() => {
+    const saved = localStorage.getItem('resumeATSMatchResult');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const handleJobDescChange = (e) => {
+    const val = e.target.value;
+    setJobDescription(val);
+    localStorage.setItem('resumeATSJobDescription', val);
+  };
+
+  const calculateJobMatch = useCallback(async (resumeText, jobDesc) => {
+    const textToUse = resumeText || (result && (result.raw_text || result.text));
+    const descToUse = jobDesc !== undefined ? jobDesc : jobDescription;
+    
+    if (!textToUse) {
+      alert("Please upload a resume first.");
+      return;
+    }
+    if (!descToUse.trim()) {
+      alert("Please enter a job description.");
+      return;
+    }
+    
+    setMatching(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/resume/ats-match', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          resume_text: textToUse,
+          job_description: descToUse
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Server match prediction failed');
+      }
+      
+      const matchData = await response.json();
+      setMatchResult(matchData);
+      localStorage.setItem('resumeATSMatchResult', JSON.stringify(matchData));
+    } catch (err) {
+      console.warn('Backend match prediction failed, falling back to local overlap calculation:', err);
+      // Client-side fallback overlap score
+      const rText = textToUse.toLowerCase();
+      const jText = descToUse.toLowerCase();
+      const rWords = new Set(rText.match(/\b\w{3,}\b/g) || []);
+      const jWords = new Set(jText.match(/\b\w{3,}\b/g) || []);
+      
+      let matchData;
+      if (jWords.size === 0) {
+        matchData = { score: 20.0, label: "No Fit", ai_powered: false };
+      } else {
+        const overlap = [...rWords].filter(w => jWords.has(w));
+        const matchRatio = overlap.length / jWords.size;
+        const score = Math.round(Math.min(100.0, 20.0 + (matchRatio * 120.0)) * 10) / 10;
+        
+        let label = "No Fit";
+        if (score >= 70.0) label = "Good Fit";
+        else if (score >= 40.0) label = "Potential Fit";
+        
+        matchData = {
+          score,
+          label,
+          ai_powered: false
+        };
+      }
+      setMatchResult(matchData);
+      localStorage.setItem('resumeATSMatchResult', JSON.stringify(matchData));
+    } finally {
+      setMatching(false);
+    }
+  }, [result, jobDescription]);
 
   const handleFile = useCallback(async (selectedFile) => {
     if (!selectedFile) return;
@@ -236,17 +317,34 @@ export default function ResumeAnalysis() {
       setResult(analysis);
       localStorage.setItem('resumeATSResult', JSON.stringify(analysis));
       localStorage.setItem('resumeATSScore', analysis.overall.toString());
+
+      // If job description exists, run match
+      if (jobDescription.trim()) {
+        await calculateJobMatch(analysis.raw_text || analysis.text, jobDescription);
+      } else {
+        setMatchResult(null);
+        localStorage.removeItem('resumeATSMatchResult');
+      }
     } catch (err) {
       console.warn('Backend connection or analysis failed, falling back to local analysis:', err);
       try {
         const text = await readFileAsText(selectedFile);
         const analysis = analyzeResume(text);
         analysis.filename = selectedFile.name;
+        analysis.raw_text = text;
         analysis.analyzedAt = new Date().toISOString();
         
         setResult(analysis);
         localStorage.setItem('resumeATSResult', JSON.stringify(analysis));
         localStorage.setItem('resumeATSScore', analysis.overall.toString());
+
+        // Run match
+        if (jobDescription.trim()) {
+          await calculateJobMatch(text, jobDescription);
+        } else {
+          setMatchResult(null);
+          localStorage.removeItem('resumeATSMatchResult');
+        }
       } catch (localErr) {
         console.error('Local analysis also failed:', localErr);
         alert(err.message && err.message !== "Server analysis failed" ? err.message : 'Could not analyze the file. Please make sure the file is not corrupted.');
@@ -254,7 +352,7 @@ export default function ResumeAnalysis() {
     } finally {
       setAnalyzing(false);
     }
-  }, []);
+  }, [jobDescription, calculateJobMatch]);
 
   const readFileAsText = async (file) => {
     // PDF files — extract text using pdfjs-dist
@@ -335,110 +433,253 @@ export default function ResumeAnalysis() {
     return 'Poor';
   };
 
+  const clearAnalysis = () => {
+    setFile(null);
+    setResult(null);
+    setMatchResult(null);
+    localStorage.removeItem('resumeATSResult');
+    localStorage.removeItem('resumeATSScore');
+    localStorage.removeItem('resumeATSMatchResult');
+  };
+
+  // Keyword extraction for Job Match insights
+  const getJobMatchKeywords = () => {
+    const resumeText = result ? (result.raw_text || result.text) : '';
+    if (!resumeText || !jobDescription) return null;
+    const resumeLower = resumeText.toLowerCase();
+    const jobLower = jobDescription.toLowerCase();
+    
+    const rWords = new Set(resumeLower.match(/\b\w{3,}\b/g) || []);
+    const jWords = new Set(jobLower.match(/\b\w{3,}\b/g) || []);
+    
+    // Filter common English stop words
+    const stopWords = new Set([
+      'the', 'and', 'for', 'you', 'with', 'that', 'this', 'have', 'from', 'your',
+      'are', 'will', 'our', 'their', 'about', 'more', 'work', 'team', 'experience',
+      'skills', 'position', 'role', 'requirements', 'must', 'candidate', 'ability',
+      'responsibilities', 'responsible', 'required', 'preferred', 'description',
+      'strong', 'good', 'ability', 'excellent', 'written', 'verbal', 'communication'
+    ]);
+    
+    const importantWords = Array.from(jWords).filter(w => {
+      return w.length > 3 && !stopWords.has(w) && !/^\d+$/.test(w);
+    });
+    
+    const matching = importantWords.filter(w => rWords.has(w));
+    const missing = importantWords.filter(w => !rWords.has(w));
+    
+    return { matching, missing };
+  };
+
+  const keywordInsights = getJobMatchKeywords();
+
   const overallDeg = result ? result.overall * 3.6 + 'deg' : '0deg';
+  const matchDeg = matchResult ? matchResult.score * 3.6 + 'deg' : '0deg';
 
   return (
     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
-      <div style={{ marginBottom: '3rem' }}>
-        <h1 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Resume ATS Analysis</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', maxWidth: '700px' }}>
-          Upload your resume to get an instant ATS (Applicant Tracking System) compatibility score 
-          with detailed breakdown and actionable improvement tips.
-        </p>
-      </div>
-
-      {/* Upload Zone */}
-      <div
-        className={`resume-upload-zone ${dragOver ? 'drag-over' : ''}`}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onClick={() => document.getElementById('resume-file-input').click()}
-        style={{
-          border: `2px dashed ${dragOver ? 'var(--accent-primary)' : 'var(--border-color)'}`,
-          borderRadius: '16px',
-          padding: '3rem 2rem',
-          textAlign: 'center',
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
-          background: dragOver ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255,255,255,0.02)',
-          marginBottom: '2rem'
-        }}
-      >
-        <input
-          id="resume-file-input"
-          type="file"
-          accept=".pdf,.doc,.docx,.txt"
-          style={{ display: 'none' }}
-          onChange={(e) => handleFile(e.target.files[0])}
-        />
-        {analyzing ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-            <RefreshCw size={48} color="var(--accent-primary)" style={{ animation: 'spin 1s linear infinite' }} />
-            <p style={{ color: 'var(--accent-primary)', fontWeight: 600, fontSize: '1.2rem' }}>Analyzing your resume...</p>
-            <p style={{ color: 'var(--text-secondary)' }}>Checking ATS compatibility, keywords, and structure</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-            <Upload size={48} color="var(--text-secondary)" />
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.2rem' }}>
-              {file ? file.name : 'Drag & drop your resume here'}
-            </p>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              or click to browse • Supports PDF, DOC, DOCX, TXT
-            </p>
-          </div>
+      <div style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Resume ATS & Job Matching</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', maxWidth: '700px' }}>
+            Upload your resume and optionally paste a job description to analyze semantic alignment, keyword fit, and predict compatibility scores using our machine learning model.
+          </p>
+        </div>
+        {result && (
+          <button className="btn-secondary" onClick={clearAnalysis} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <RefreshCw size={16} /> Reset Analysis
+          </button>
         )}
       </div>
 
-      {/* Results */}
+      {!result && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+          {/* Job Description Box */}
+          <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <h2 style={{ fontSize: '1.3rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Brain size={20} color="var(--accent-primary)" />
+              1. Job Description (Optional)
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
+              Paste the target job description here to check your semantic compatibility score using our trained Ridge Regression model.
+            </p>
+            <textarea
+              placeholder="Paste job requirements, responsibilities, or complete job description here..."
+              value={jobDescription}
+              onChange={handleJobDescChange}
+              style={{
+                flex: 1,
+                minHeight: '220px',
+                background: 'rgba(0,0,0,0.2)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '1rem',
+                color: 'var(--text-primary)',
+                fontFamily: 'inherit',
+                fontSize: '0.95rem',
+                resize: 'none',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+            />
+            {jobDescription && (
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', alignSelf: 'flex-end' }}>
+                {jobDescription.length} characters
+              </span>
+            )}
+          </div>
+
+          {/* Upload Zone */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <h2 style={{ fontSize: '1.3rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <FileText size={20} color="var(--accent-primary)" />
+              2. Upload Resume
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
+              Drag and drop your PDF, DOCX, or TXT resume file.
+            </p>
+            <div
+              className={`resume-upload-zone ${dragOver ? 'drag-over' : ''}`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onClick={() => document.getElementById('resume-file-input').click()}
+              style={{
+                flex: 1,
+                border: `2px dashed ${dragOver ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                background: dragOver ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255,255,255,0.02)',
+                minHeight: '260px'
+              }}
+            >
+              <input
+                id="resume-file-input"
+                type="file"
+                accept=".pdf,.doc,.docx,.txt"
+                style={{ display: 'none' }}
+                onChange={(e) => handleFile(e.target.files[0])}
+              />
+              {analyzing ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem', textAlign: 'center' }}>
+                  <RefreshCw size={48} color="var(--accent-primary)" style={{ animation: 'spin 1s linear infinite' }} />
+                  <p style={{ color: 'var(--accent-primary)', fontWeight: 600, fontSize: '1.2rem', margin: 0 }}>Analyzing Resume...</p>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Parsing skills, matching keyword sets and predicting compatibility</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem', textAlign: 'center' }}>
+                  <Upload size={48} color="var(--text-secondary)" />
+                  <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.2rem', margin: 0 }}>
+                    {file ? file.name : 'Drag & drop resume here'}
+                  </p>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                    or click to browse • Supports PDF, DOC, DOCX, TXT
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Results Screen */}
       {result && !analyzing && (
         <div style={{ animation: 'fadeInUp 0.6s ease' }}>
-          {/* Top Row: Overall Score + Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', marginBottom: '2rem' }}>
-            {/* Overall ATS Score */}
-            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2.5rem' }}>
-              <h2 style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', marginTop: 0, fontSize: '1.2rem' }}>ATS Score</h2>
+          {/* Top Row: Overall Scores + Category Breakdown */}
+          <div style={{ display: 'grid', gridTemplateColumns: matchResult ? 'repeat(3, 1fr)' : '1fr 2fr', gap: '2rem', marginBottom: '2rem' }}>
+            
+            {/* Standard Profile Score Dial */}
+            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+              <h2 style={{ color: 'var(--text-secondary)', marginBottom: '1.2rem', marginTop: 0, fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <FileText size={16} /> Resume Quality Score
+              </h2>
               <div style={{
-                width: '180px', height: '180px', borderRadius: '50%',
+                width: '160px', height: '160px', borderRadius: '50%',
                 background: `conic-gradient(${getScoreColor(result.overall)} ${overallDeg}, rgba(255,255,255,0.05) 0deg)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                marginBottom: '1.5rem'
+                marginBottom: '1.2rem'
               }}>
                 <div style={{
-                  width: '150px', height: '150px', borderRadius: '50%',
+                  width: '132px', height: '132px', borderRadius: '50%',
                   background: 'var(--bg-card)', display: 'flex', flexDirection: 'column',
                   alignItems: 'center', justifyContent: 'center'
                 }}>
-                  <span style={{ fontSize: '3rem', fontWeight: 'bold', color: getScoreColor(result.overall), lineHeight: 1 }}>
+                  <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: getScoreColor(result.overall), lineHeight: 1 }}>
                     {result.overall}
                   </span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>/ 100</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.2rem' }}>/ 100</span>
                 </div>
               </div>
-              <p style={{ color: getScoreColor(result.overall), fontWeight: 600, fontSize: '1.1rem', textAlign: 'center' }}>
+              <p style={{ color: getScoreColor(result.overall), fontWeight: 600, fontSize: '1rem', textAlign: 'center', margin: 0 }}>
                 {getScoreLabel(result.overall)}
               </p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textAlign: 'center', marginTop: '0.5rem' }}>
-                <FileText size={14} style={{ verticalAlign: 'middle' }} /> {result.filename}
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textAlign: 'center', marginTop: '0.4rem', margin: 0 }}>
+                Keyword & structure audit
               </p>
             </div>
 
-            {/* Category Breakdown */}
-            <div className="glass-panel" style={{ padding: '2rem' }}>
-              <h2 style={{ marginBottom: '1.5rem', color: '#fff', marginTop: 0, fontSize: '1.3rem' }}>Category Breakdown</h2>
+            {/* ML-powered Job Match Score Dial (if matching was requested) */}
+            {matchResult && (
+              <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', border: '1px solid rgba(99, 102, 241, 0.3)', position: 'relative', overflow: 'hidden' }}>
+                <div style={{
+                  position: 'absolute', top: '10px', right: '10px',
+                  background: matchResult.ai_powered ? 'linear-gradient(135deg, #6366F1, #8B5CF6)' : 'rgba(255,255,255,0.08)',
+                  padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: '3px', color: '#fff'
+                }}>
+                  {matchResult.ai_powered ? <Sparkles size={10} /> : null}
+                  {matchResult.ai_powered ? 'ML Matcher' : 'Local Overlap'}
+                </div>
+                <h2 style={{ color: 'var(--text-secondary)', marginBottom: '1.2rem', marginTop: 0, fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Brain size={16} color="var(--accent-primary)" /> Job Match Score
+                </h2>
+                <div style={{
+                  width: '160px', height: '160px', borderRadius: '50%',
+                  background: `conic-gradient(${getScoreColor(matchResult.score)} ${matchDeg}, rgba(255,255,255,0.05) 0deg)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: '1.2rem'
+                }}>
+                  <div style={{
+                    width: '132px', height: '132px', borderRadius: '50%',
+                    background: 'var(--bg-card)', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: getScoreColor(matchResult.score), lineHeight: 1 }}>
+                      {matchResult.score}
+                    </span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.2rem' }}>/ 100</span>
+                  </div>
+                </div>
+                <p style={{ color: getScoreColor(matchResult.score), fontWeight: 600, fontSize: '1rem', textAlign: 'center', margin: 0 }}>
+                  {matchResult.label}
+                </p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textAlign: 'center', marginTop: '0.4rem', margin: 0 }}>
+                  Fit prediction vs job roles
+                </p>
+              </div>
+            )}
+
+            {/* Category Breakdown (occupies 1 column if matching, or 2 columns if not matching) */}
+            <div className="glass-panel" style={{ padding: '2rem', gridColumn: matchResult ? 'auto' : 'span 1' }}>
+              <h2 style={{ marginBottom: '1.2rem', color: '#fff', marginTop: 0, fontSize: '1.1rem', fontWeight: 600 }}>Category Breakdown</h2>
               {Object.entries(result.categories).map(([key, cat]) => {
                 const barColor = getScoreColor(cat.score);
                 return (
-                  <div key={key} style={{ marginBottom: '1.25rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                  <div key={key} style={{ marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-primary)' }}>
                         <span style={{ color: CATEGORY_COLORS[key] }}>{CATEGORY_ICONS[cat.icon]}</span>
-                        <span style={{ fontWeight: 500, fontSize: '0.95rem' }}>{cat.label}</span>
+                        <span style={{ fontWeight: 500, fontSize: '0.85rem' }}>{cat.label}</span>
                       </div>
-                      <span style={{ fontWeight: 'bold', color: barColor, fontSize: '0.95rem' }}>{cat.score}/100</span>
+                      <span style={{ fontWeight: 'bold', color: barColor, fontSize: '0.85rem' }}>{cat.score}</span>
                     </div>
-                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{
                         width: cat.score + '%', height: '100%',
                         background: CATEGORY_COLORS[key],
@@ -451,6 +692,53 @@ export default function ResumeAnalysis() {
               })}
             </div>
           </div>
+
+          {/* If no match score exists, allow user to run a match score on their uploaded resume */}
+          {!matchResult && (
+            <div className="glass-panel" style={{ marginBottom: '2rem', padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px dashed rgba(99, 102, 241, 0.4)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sparkles size={18} color="var(--accent-primary)" /> Compare against a Job Description
+                  </h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0.2rem 0 0 0' }}>
+                    Paste a job description below to run semantic alignment scoring against this resume.
+                  </p>
+                </div>
+                <button
+                  className="btn-primary"
+                  onClick={() => calculateJobMatch()}
+                  disabled={matching || !jobDescription.trim()}
+                  style={{
+                    padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    opacity: (!jobDescription.trim() || matching) ? 0.6 : 1,
+                    cursor: (!jobDescription.trim() || matching) ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {matching ? <RefreshCw size={14} className="spin" /> : <Brain size={14} />}
+                  {matching ? 'Calculating...' : 'Predict Job Fit'}
+                </button>
+              </div>
+              <textarea
+                placeholder="Paste the target job description here..."
+                value={jobDescription}
+                onChange={handleJobDescChange}
+                style={{
+                  width: '100%',
+                  minHeight: '90px',
+                  background: 'rgba(0,0,0,0.2)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '0.75rem',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'inherit',
+                  fontSize: '0.9rem',
+                  resize: 'vertical',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          )}
 
           {/* Quick Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
@@ -468,11 +756,82 @@ export default function ResumeAnalysis() {
             ))}
           </div>
 
+          {/* Job Match Keyword Insights (if Job Description comparison has been executed) */}
+          {matchResult && keywordInsights && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+              
+              {/* Matching terms */}
+              <div className="glass-panel" style={{ padding: '2rem' }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)', marginTop: 0, marginBottom: '1rem', fontSize: '1.15rem' }}>
+                  <CheckCircle size={18} /> Matching Role Keywords ({keywordInsights.matching.length})
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.2rem', marginTop: 0 }}>
+                  These key terms from the job requirements were successfully parsed in your resume.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {keywordInsights.matching.length > 0 ? (
+                    keywordInsights.matching.map((word, i) => (
+                      <span key={i} style={{
+                        padding: '0.35rem 0.75rem',
+                        background: 'rgba(16, 185, 129, 0.08)',
+                        borderRadius: '20px',
+                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                        color: 'var(--success)',
+                        fontSize: '0.8rem',
+                        fontWeight: 500,
+                        textTransform: 'capitalize'
+                      }}>
+                        {word}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No direct keyword overlaps detected.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Missing terms */}
+              <div className="glass-panel" style={{ padding: '2rem' }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)', marginTop: 0, marginBottom: '1rem', fontSize: '1.15rem' }}>
+                  <XCircle size={18} /> Missing Role Keywords ({keywordInsights.missing.length})
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.2rem', marginTop: 0 }}>
+                  Add these target skills/requirements to your resume to increase compatibility and score higher.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {keywordInsights.missing.length > 0 ? (
+                    keywordInsights.missing.slice(0, 30).map((word, i) => (
+                      <span key={i} style={{
+                        padding: '0.35rem 0.75rem',
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        borderRadius: '20px',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        color: 'var(--danger)',
+                        fontSize: '0.8rem',
+                        fontWeight: 500,
+                        textTransform: 'capitalize'
+                      }}>
+                        {word}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: 'var(--success)', fontSize: '0.9rem', fontWeight: 500 }}>Incredible! You matched all major keywords.</span>
+                  )}
+                  {keywordInsights.missing.length > 30 && (
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', alignSelf: 'center', paddingLeft: '0.2rem' }}>
+                      + {keywordInsights.missing.length - 30} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Strengths & Weaknesses */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
             <div className="glass-panel" style={{ padding: '2rem' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)', marginTop: 0, marginBottom: '1.5rem' }}>
-                <CheckCircle size={20} /> Strengths
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)', marginTop: 0, marginBottom: '1.5rem', fontSize: '1.15rem' }}>
+                <CheckCircle size={20} /> Resume Strengths
               </h3>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {result.strengths.map((s, i) => (
@@ -492,7 +851,7 @@ export default function ResumeAnalysis() {
             </div>
 
             <div className="glass-panel" style={{ padding: '2rem' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)', marginTop: 0, marginBottom: '1.5rem' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)', marginTop: 0, marginBottom: '1.5rem', fontSize: '1.15rem' }}>
                 <XCircle size={20} /> Areas to Improve
               </h3>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -515,7 +874,7 @@ export default function ResumeAnalysis() {
 
           {/* Suggestions */}
           <div className="glass-panel" style={{ padding: '2rem' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--warning)', marginTop: 0, marginBottom: '1.5rem' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--warning)', marginTop: 0, marginBottom: '1.5rem', fontSize: '1.15rem' }}>
               <AlertTriangle size={20} /> Suggestions for Improvement
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
@@ -550,6 +909,9 @@ export default function ResumeAnalysis() {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        .spin {
+          animation: spin 1s linear infinite;
+        }
         .resume-upload-zone:hover {
           border-color: var(--accent-primary) !important;
           background: rgba(99, 102, 241, 0.05) !important;
@@ -558,3 +920,4 @@ export default function ResumeAnalysis() {
     </div>
   );
 }
+

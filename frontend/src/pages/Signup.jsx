@@ -16,30 +16,26 @@ export default function Signup() {
     setError('');
 
     try {
-      // Attempt real API call
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+      const { auth } = await import('../firebase.js');
+      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      await updateProfile(userCredential.user, {
+        displayName: name
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        const token = data.token || ('user-token-' + Date.now());
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('userEmail', email || 'user@example.com');
-      } else {
-        // API responded with error — fallback: still create session
-        localStorage.setItem('authToken', 'user-token-' + Date.now());
-        localStorage.setItem('userEmail', email || 'user@example.com');
-      }
+      
+      const token = await userCredential.user.getIdToken();
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('userEmail', userCredential.user.email);
+      localStorage.setItem('userFullName', name);
+      
+      navigate('/dashboard');
     } catch (err) {
-      // Backend is down — fallback mode
-      localStorage.setItem('authToken', 'user-token-' + Date.now());
-      localStorage.setItem('userEmail', email || 'user@example.com');
+      console.error(err);
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
-      navigate('/dashboard');
     }
   };
 

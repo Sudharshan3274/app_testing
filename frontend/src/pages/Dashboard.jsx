@@ -22,18 +22,52 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
-    const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
-    setHistory(sorted);
+    async function loadHistory() {
+      try {
+        const { db, auth } = await import('../firebase.js');
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        
+        auth.onAuthStateChanged(async (user) => {
+          if (user) {
+            let dbData = [];
+            try {
+              const q = query(
+                collection(db, "interviews"), 
+                where("userId", "==", user.uid)
+              );
+              const querySnapshot = await getDocs(q);
+              dbData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } catch (fsErr) {
+              console.warn("Firestore dashboard load failed, using local storage fallback:", fsErr);
+            }
+            
+            const localHistory = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+            
+            const merged = [...dbData];
+            localHistory.forEach(localItem => {
+              if (!merged.some(dbItem => dbItem.id === localItem.id)) {
+                merged.push(localItem);
+              }
+            });
+            
+            merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+            setHistory(merged);
 
-    if (sorted.length > 0) {
-      const totalScore = sorted.reduce((acc, curr) => acc + curr.scores.overall, 0);
-      setStats({
-        avgScore: Math.round(totalScore / sorted.length),
-        totalTaken: sorted.length,
-        practiceHours: +(sorted.length * 0.75).toFixed(1)
-      });
+            if (merged.length > 0) {
+              const totalScore = merged.reduce((acc, curr) => acc + (curr.scores?.overall || 0), 0);
+              setStats({
+                avgScore: Math.round(totalScore / merged.length),
+                totalTaken: merged.length,
+                practiceHours: +(merged.length * 0.75).toFixed(1)
+              });
+            }
+          }
+        });
+      } catch (err) {
+        console.error("Failed to load interview history from Firebase:", err);
+      }
     }
+    loadHistory();
   }, []);
 
   const chartData = (() => {

@@ -1,10 +1,9 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 from services.ai_service import analyze_interview_with_ai
 
 router = APIRouter()
-
 
 class InterviewAnalysisRequest(BaseModel):
     domain: str
@@ -13,7 +12,6 @@ class InterviewAnalysisRequest(BaseModel):
     timePerQuestion: List[float] = []
     eyeContactScore: float = 0
     recordedQuestions: List[bool] = []
-
 
 @router.post("/analyze")
 async def analyze_interview(request: InterviewAnalysisRequest):

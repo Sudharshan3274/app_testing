@@ -45,52 +45,28 @@ The frontend will start at: **http://localhost:5173**
 
 ---
 
-## 📱 Using the QR Code Scanner
+## 📱 Running the Mobile App (USB Debugging)
 
 ### Setup for Mobile:
 
 1. **Install Node Modules:**
 
    ```bash
-   cd frontend
+   cd mobile
    npm install
    ```
 
-2. **Build for Mobile (Android/iOS):**
+2. **Enable USB Debugging on your Android Device:**
+   - Go to **Settings > About Phone** and tap **Build Number** 7 times to enable Developer Options.
+   - Go back to **Settings > Developer Options** and enable **USB Debugging**.
+   - Connect your phone to your computer via USB cable.
+
+3. **Run on Device:**
 
    ```bash
-   npm run build
-   npx cap sync
-   npx cap open android    # For Android
+   npm run android
    ```
-
-3. **In your components**, import and use the scanner:
-
-   ```jsx
-   import QRScanner from "../components/QRScanner";
-
-   const [showScanner, setShowScanner] = useState(false);
-
-   const handleScan = (data) => {
-     console.log("Scanned QR Code:", data);
-     // Handle the scanned data here
-   };
-
-   return (
-     <>
-       <button onClick={() => setShowScanner(true)}>Scan QR Code</button>
-
-       {showScanner && (
-         <QRScanner onScan={handleScan} onClose={() => setShowScanner(false)} />
-       )}
-     </>
-   );
-   ```
-
-### Test Scanner (Web Preview):
-
-- Try the example page at: `src/pages/ScannerExample.jsx`
-- Add it to your router to test
+   This will start the Expo bundler and install/run the app on your connected Android device.
 
 ---
 
@@ -108,10 +84,11 @@ OPENAI_API_KEY=your-openai-key-here
 
 ### Frontend API Configuration
 
-Update the API base URL in your `frontend/src/` components:
+Update the API base URL in your components or `mobile/src/utils/api.js`:
 
 ```jsx
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = "http://10.0.2.2:8000"; // For Android Emulator
+// Or use your computer's local IP address (e.g. http://192.168.1.50:8000) for USB debugging.
 ```
 
 ---
@@ -123,20 +100,17 @@ app/
 ├── backend/                    # Python FastAPI server
 │   ├── main.py                # FastAPI app entry
 │   ├── requirements.txt        # Python dependencies ✅
-│   ├── database.py            # MongoDB config
 │   └── routes/                # API endpoints
 │
 ├── frontend/                  # React + Vite web app
-│   ├── package.json           # Dependencies updated ✅
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── QRScanner.jsx  # QR scanner component ✅
-│   │   ├── pages/
-│   │   │   └── ScannerExample.jsx  # Scanner demo page ✅
-│   │   └── App.jsx
-│   └── vite.config.js
+│   ├── package.json           # Web dependencies ✅
+│   ├── src/                   # React components & pages
+│   └── vite.config.js         # Web build config
 │
-└── android/                   # Capacitor Android app
+└── mobile/                    # React Native + Expo mobile app
+    ├── App.js                 # App entry point
+    ├── src/                   # Navigation & screens ✅
+    └── package.json           # Mobile dependencies ✅
 ```
 
 ---
@@ -152,17 +126,8 @@ app/
 2. **Test Frontend**:
    - Open http://localhost:5173 in your browser
 
-3. **Test Scanner**:
-   - Navigate to the ScannerExample page
-   - Click "Start Scanning"
-   - Generate a test QR code and scan it
-
-4. **Build for Mobile**:
-   ```bash
-   cd frontend
-   npm run build
-   npx cap sync
-   ```
+3. **Run Mobile app**:
+   - Run `npm run android` inside `mobile/` with your device connected.
 
 ---
 
@@ -180,11 +145,10 @@ app/
 - Clear browser cache (Ctrl+Shift+Delete)
 - Check port 5173 is not in use
 
-### Scanner not working:
-
-- Make sure you're testing on a mobile device or using Capacitor
-- Check camera permissions in app settings
-- For Android: Add camera permission in `AndroidManifest.xml`
+### Mobile device not detected:
+- Make sure USB debugging is enabled in Developer Options.
+- Run `adb devices` in your command line to verify the PC sees your phone.
+- Accept the debugging authorization prompt on your phone's screen.
 
 ---
 
@@ -201,17 +165,23 @@ python -m uvicorn main:app --reload --port 8000
 ```bash
 npm run dev       # Start development server
 npm run build     # Build for production
-npm run preview   # Preview production build
-npm run lint      # Run ESLint
+```
+
+**Mobile:**
+
+```bash
+npm start         # Start Expo server
+npm run android   # Run on connected Android device
 ```
 
 ---
 
 ## ✨ Features Ready to Use
 
-- ✅ FastAPI backend with MongoDB
-- ✅ React + Vite frontend with Capacitor
-- ✅ QR Code scanner (mobile)
+- ✅ FastAPI backend
+- ✅ React + Vite frontend website
+- ✅ React Native + Expo mobile app
+- ✅ USB debugging compatibility
 - ✅ Authentication setup
 - ✅ Interview & Resume routes
 - ✅ AI service integration

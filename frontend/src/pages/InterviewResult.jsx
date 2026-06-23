@@ -8,13 +8,38 @@ export default function InterviewResult() {
   const [result, setResult] = useState(null);
 
   useEffect(() => {
-    const history = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
-    const currentResult = history.find(item => item.id === id);
-    if (currentResult) {
-      setResult(currentResult);
-    } else {
-      navigate('/history');
+    async function loadResult() {
+      try {
+        const { db } = await import('../firebase.js');
+        const { doc, getDoc } = await import('firebase/firestore');
+        
+        const docRef = doc(db, "interviews", id);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          setResult({ id: docSnap.id, ...docSnap.data() });
+        } else {
+          // Fallback to local storage if API fails or not found (e.g., local test)
+          const history = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+          const fallbackResult = history.find(item => item.id === id);
+          if (fallbackResult) {
+            setResult(fallbackResult);
+          } else {
+            navigate('/history');
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load interview result from Firestore:", err);
+        const history = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+        const fallbackResult = history.find(item => item.id === id);
+        if (fallbackResult) {
+          setResult(fallbackResult);
+        } else {
+          navigate('/history');
+        }
+      }
     }
+    loadResult();
   }, [id, navigate]);
 
   if (!result) return (

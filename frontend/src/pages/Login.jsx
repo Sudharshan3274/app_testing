@@ -8,37 +8,54 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccessMessage('');
 
     try {
-      // Attempt real API call
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const token = data.token || ('user-token-' + Date.now());
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('userEmail', email || 'user@example.com');
-      } else {
-        // API responded with error — fallback: still allow login
-        localStorage.setItem('authToken', 'user-token-' + Date.now());
-        localStorage.setItem('userEmail', email || 'user@example.com');
-      }
+      const { auth } = await import('../firebase.js');
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // We no longer strictly need to manage our own localStorage for tokens,
+      // but keeping it helps backwards compatibility with existing UI hooks temporarily
+      const token = await userCredential.user.getIdToken();
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('userEmail', userCredential.user.email);
+      localStorage.setItem('userFullName', userCredential.user.displayName || 'User');
+      
+      navigate('/dashboard');
     } catch (err) {
-      // Backend is down — fallback mode: allow login with any credentials
-      localStorage.setItem('authToken', 'user-token-' + Date.now());
-      localStorage.setItem('userEmail', email || 'user@example.com');
+      console.error(err);
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
-      navigate('/dashboard');
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const { auth } = await import('../firebase.js');
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      
+      await sendPasswordResetEmail(auth, email);
+      setSuccessMessage('A password reset link has been sent to your email address.');
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to send password reset email. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -87,8 +104,12 @@ export default function Login() {
             <ArrowLeft size={18} /> Back to Home
           </button>
           <div style={{ textAlign: 'center' }}>
-            <h2 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem', marginTop: 0 }}>Welcome Back</h2>
-            <p style={{ color: 'var(--text-secondary)' }}>Log in to access your AI interview dashboard.</p>
+            <h2 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem', marginTop: 0 }}>
+              {isResetMode ? 'Reset Password' : 'Welcome Back'}
+            </h2>
+            <p style={{ color: 'var(--text-secondary)' }}>
+              {isResetMode ? 'Enter your email to receive a password reset link.' : 'Log in to access your AI interview dashboard.'}
+            </p>
           </div>
         </div>
 
@@ -107,77 +128,157 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Email Address</label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-              <input 
-                type="email" 
-                placeholder="you@example.com"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  padding: '0.75rem 1rem 0.75rem 2.75rem',
-                  color: 'var(--text-primary)',
-                  fontSize: '1rem',
-                  outline: 'none',
-                  transition: 'border-color 0.3s',
-                  boxSizing: 'border-box',
-                }}
-                onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
-                onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
-              />
-            </div>
+        {successMessage && (
+          <div style={{
+            position: 'relative', zIndex: 1,
+            background: 'rgba(34,197,94,0.1)',
+            border: '1px solid rgba(34,197,94,0.3)',
+            borderRadius: '8px',
+            padding: '0.75rem 1rem',
+            marginBottom: '1rem',
+            color: '#4ade80',
+            fontSize: '0.9rem',
+          }}>
+            {successMessage}
           </div>
+        )}
 
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <label style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Password</label>
-              <a href="#" style={{ color: 'var(--accent-primary)', fontSize: '0.85rem' }}>Forgot password?</a>
+        {isResetMode ? (
+          <form onSubmit={handleResetPassword} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Email Address</label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <input 
+                  type="email" 
+                  placeholder="you@example.com"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '0.75rem 1rem 0.75rem 2.75rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '1rem',
+                    outline: 'none',
+                    transition: 'border-color 0.3s',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                />
+              </div>
             </div>
-            <div style={{ position: 'relative' }}>
-              <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-              <input 
-                type="password" 
-                placeholder="••••••••"
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  padding: '0.75rem 1rem 0.75rem 2.75rem',
-                  color: 'var(--text-primary)',
-                  fontSize: '1rem',
-                  outline: 'none',
-                  transition: 'border-color 0.3s',
-                  boxSizing: 'border-box',
-                }}
-                onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
-                onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
-              />
-            </div>
-          </div>
 
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading}
-            style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', opacity: loading ? 0.7 : 1 }}
-          >
-            <LogIn size={18} />
-            {loading ? 'Logging in...' : 'Log In'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading}
+              style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setIsResetMode(false); setError(''); setSuccessMessage(''); }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--accent-primary)',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit',
+                textAlign: 'center',
+                marginTop: '0.5rem',
+                outline: 'none'
+              }}
+            >
+              Back to Log In
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleLogin} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Email Address</label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <input 
+                  type="email" 
+                  placeholder="you@example.com"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '0.75rem 1rem 0.75rem 2.75rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '1rem',
+                    outline: 'none',
+                    transition: 'border-color 0.3s',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <label style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Password</label>
+                <button
+                  type="button"
+                  onClick={() => { setIsResetMode(true); setError(''); setSuccessMessage(''); }}
+                  style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--accent-primary)', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <input 
+                  type="password" 
+                  placeholder="••••••••"
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '0.75rem 1rem 0.75rem 2.75rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '1rem',
+                    outline: 'none',
+                    transition: 'border-color 0.3s',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading}
+              style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', opacity: loading ? 0.7 : 1 }}
+            >
+              <LogIn size={18} />
+              {loading ? 'Logging in...' : 'Log In'}
+            </button>
+          </form>
+        )}
 
         <p style={{ position: 'relative', zIndex: 1, textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
           Don't have an account? <Link to="/signup" style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Sign up</Link>

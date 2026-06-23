@@ -36,9 +36,17 @@ function Sidebar({ isOpen, setIsOpen }) {
   const noSidebarRoutes = ['/', '/login', '/signup'];
   if (noSidebarRoutes.some(r => location.pathname === r)) return null;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const { auth } = await import('./firebase.js');
+      const { signOut } = await import('firebase/auth');
+      await signOut(auth);
+    } catch (err) {
+      console.error(err);
+    }
     localStorage.removeItem('authToken');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('userFullName');
     window.location.href = '/';
   };
 

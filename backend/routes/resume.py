@@ -1,9 +1,16 @@
 from fastapi import APIRouter, UploadFile, File
 from services.ai_service import analyze_resume_with_ai
+from services.ats_service import predict_ats_match_score
+from pydantic import BaseModel
 from pypdf import PdfReader
 import io
 
 router = APIRouter(prefix="/api/resume", tags=["Resume"])
+
+
+class ATSMatchRequest(BaseModel):
+    resume_text: str
+    job_description: str
 
 
 @router.post("/analyze")
@@ -47,4 +54,13 @@ async def analyze_resume(file: UploadFile = File(...)):
 
     analysis_result = await analyze_resume_with_ai(text)
     analysis_result["filename"] = filename
+    # Return raw text so frontend can run both local/Gemini analysis AND pass it to job description match
+    analysis_result["raw_text"] = text
     return analysis_result
+
+
+@router.post("/ats-match")
+async def ats_match(request: ATSMatchRequest):
+    """Compares resume_text with job_description and predicts compatibility score using ML."""
+    return predict_ats_match_score(request.resume_text, request.job_description)
+
