@@ -91,7 +91,7 @@ export default function Dashboard() {
   }, []);
 
   const chartData = (() => {
-    const scores = history.slice(0, 7).map(h => h.scores.overall).reverse();
+    const scores = history.slice(0, 7).map(h => h.scores?.overall || h.score || 70).reverse();
     while (scores.length < 7) scores.unshift(10);
     return scores;
   })();
@@ -148,25 +148,28 @@ export default function Dashboard() {
             <p style={{ color: 'var(--text-secondary)' }}>No interviews completed yet. Start one to see results here!</p>
           ) : (
             <ul className="dash-interview-list">
-              {history.slice(0, 3).map(record => (
-                <li
-                  key={record.id}
-                  className="dash-interview-item"
-                  onClick={() => navigate('/interview/result/' + record.id)}
-                >
-                  <div className="dash-interview-row">
-                    <h4 className="dash-interview-domain">{record.domain}</h4>
-                    <span className="dash-interview-score" style={{
-                      color: record.scores.overall >= 80 ? 'var(--success)' : record.scores.overall >= 60 ? 'var(--warning)' : 'var(--danger)'
-                    }}>
-                      {record.scores.overall}%
-                    </span>
-                  </div>
-                  <p className="dash-interview-date">
-                    {new Date(record.date).toLocaleDateString()}
-                  </p>
-                </li>
-              ))}
+              {history.slice(0, 3).map(record => {
+                const overallScore = record.scores?.overall || record.score || 70;
+                return (
+                  <li
+                    key={record.id}
+                    className="dash-interview-item"
+                    onClick={() => navigate(record.type === 'coding_challenge' ? '/challenges' : '/interview/result/' + record.id)}
+                  >
+                    <div className="dash-interview-row">
+                      <h4 className="dash-interview-domain">{record.domain || record.questionTitle || 'Interview'}</h4>
+                      <span className="dash-interview-score" style={{
+                        color: overallScore >= 80 ? 'var(--success)' : overallScore >= 60 ? 'var(--warning)' : 'var(--danger)'
+                      }}>
+                        {overallScore}%
+                      </span>
+                    </div>
+                    <p className="dash-interview-date">
+                      {new Date(record.date).toLocaleDateString()}
+                    </p>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
