@@ -354,25 +354,46 @@ export default function LiveInterview() {
 
   // Camera setup + Eye Tracking
   useEffect(() => {
+    let active = true;
     const startCamera = async () => {
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          audio: true,
+        });
+        if (!active) return;
         streamRef.current = mediaStream;
-        if (videoRef.current) videoRef.current.srcObject = mediaStream;
         setCameraReady(true);
-        // Initialize eye tracking after camera is ready
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(() => {});
+        }
         initEyeTracking();
       } catch (err) {
-        console.error('Camera error:', err);
-        setCameraReady(false);
+        console.warn('Audio/Video combined stream notice, attempting video-only stream:', err.message);
+        try {
+          const videoOnlyStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (!active) return;
+          streamRef.current = videoOnlyStream;
+          setCameraReady(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = videoOnlyStream;
+            videoRef.current.play().catch(() => {});
+          }
+          initEyeTracking();
+        } catch (e2) {
+          console.error('Camera permissions denied or unavailable:', e2.message);
+          if (active) setCameraReady(false);
+        }
       }
     };
     startCamera();
     return () => {
+      active = false;
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       if (eyeTrackRef.current.animFrame) cancelAnimationFrame(eyeTrackRef.current.animFrame);
     };
-  }, []);
+  }, [initEyeTracking]);
 
   // ── Eye Tracking with MediaPipe FaceMesh ──
   const initEyeTracking = useCallback(async () => {
@@ -718,7 +739,19 @@ export default function LiveInterview() {
         <div className="glass-panel li-video-panel" style={{ flex: '0 0 340px', display: 'flex', flexDirection: 'column', padding: '1rem' }}>
           <div style={{ flex: 1, background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '220px' }}>
             {cameraReady ? (
-              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
+              <video
+                ref={(el) => {
+                  videoRef.current = el;
+                  if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                    el.srcObject = streamRef.current;
+                    el.play().catch(() => {});
+                  }
+                }}
+                autoPlay
+                playsInline
+                muted
+                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+              />
             ) : (
               <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', textAlign: 'center', padding: '1rem' }}>
                 <Video size={40} />
