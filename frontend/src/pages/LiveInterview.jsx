@@ -353,47 +353,44 @@ export default function LiveInterview() {
   const canProceed = currentText.length >= 15 || secondsOnQuestion >= 10;
 
   // Camera setup + Eye Tracking
-  useEffect(() => {
-    let active = true;
-    const startCamera = async () => {
+  const startCamera = useCallback(async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        audio: true,
+      });
+      streamRef.current = mediaStream;
+      setCameraReady(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.play().catch(() => {});
+      }
+      initEyeTracking();
+    } catch (err) {
+      console.warn('Audio/Video combined stream notice, attempting video-only stream:', err.message);
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-          audio: true,
-        });
-        if (!active) return;
-        streamRef.current = mediaStream;
+        const videoOnlyStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        streamRef.current = videoOnlyStream;
         setCameraReady(true);
         if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
+          videoRef.current.srcObject = videoOnlyStream;
           videoRef.current.play().catch(() => {});
         }
         initEyeTracking();
-      } catch (err) {
-        console.warn('Audio/Video combined stream notice, attempting video-only stream:', err.message);
-        try {
-          const videoOnlyStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          if (!active) return;
-          streamRef.current = videoOnlyStream;
-          setCameraReady(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = videoOnlyStream;
-            videoRef.current.play().catch(() => {});
-          }
-          initEyeTracking();
-        } catch (e2) {
-          console.error('Camera permissions denied or unavailable:', e2.message);
-          if (active) setCameraReady(false);
-        }
+      } catch (e2) {
+        console.error('Camera permissions denied or unavailable:', e2.message);
+        setCameraReady(false);
       }
-    };
+    }
+  }, [initEyeTracking]);
+
+  useEffect(() => {
     startCamera();
     return () => {
-      active = false;
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       if (eyeTrackRef.current.animFrame) cancelAnimationFrame(eyeTrackRef.current.animFrame);
     };
-  }, [initEyeTracking]);
+  }, [startCamera]);
 
   // ── Eye Tracking with MediaPipe FaceMesh ──
   const initEyeTracking = useCallback(async () => {
@@ -737,26 +734,37 @@ export default function LiveInterview() {
 
         {/* Left: Video */}
         <div className="glass-panel li-video-panel" style={{ flex: '0 0 340px', display: 'flex', flexDirection: 'column', padding: '1rem' }}>
-          <div style={{ flex: 1, background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '220px' }}>
-            {cameraReady ? (
-              <video
-                ref={(el) => {
-                  videoRef.current = el;
-                  if (el && streamRef.current && el.srcObject !== streamRef.current) {
-                    el.srcObject = streamRef.current;
-                    el.play().catch(() => {});
-                  }
-                }}
-                autoPlay
-                playsInline
-                muted
-                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
-              />
-            ) : (
-              <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', textAlign: 'center', padding: '1rem' }}>
+          <div style={{ flex: 1, background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '220px', position: 'relative' }}>
+            <video
+              ref={(el) => {
+                videoRef.current = el;
+                if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                  el.srcObject = streamRef.current;
+                  el.play().catch(() => {});
+                }
+              }}
+              autoPlay
+              playsInline
+              muted
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transform: 'scaleX(-1)',
+                display: cameraReady ? 'block' : 'none'
+              }}
+            />
+            {!cameraReady && (
+              <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', textAlign: 'center', padding: '1rem', position: 'absolute' }}>
                 <Video size={40} />
-                <p style={{ margin: 0, fontSize: '0.85rem' }}>Requesting camera access…</p>
-                <p style={{ margin: 0, fontSize: '0.75rem' }}>Allow permissions in your browser</p>
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>Camera preview requested</p>
+                <button
+                  onClick={startCamera}
+                  className="btn-primary"
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', marginTop: '0.2rem' }}
+                >
+                  Enable Camera
+                </button>
               </div>
             )}
           </div>
