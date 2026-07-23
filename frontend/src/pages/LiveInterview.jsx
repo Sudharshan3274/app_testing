@@ -352,8 +352,11 @@ export default function LiveInterview() {
   const currentText = textAnswers[currentQuestionIdx] || '';
   const canProceed = currentText.length >= 15 || secondsOnQuestion >= 10;
 
+  const [cameraError, setCameraError] = useState(null);
+
   // Camera setup + Eye Tracking
   const startCamera = useCallback(async () => {
+    setCameraError(null);
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
@@ -378,8 +381,15 @@ export default function LiveInterview() {
         }
         initEyeTracking();
       } catch (e2) {
-        console.error('Camera permissions denied or unavailable:', e2.message);
+        console.error('Camera permissions denied or unavailable:', e2.name, e2.message);
         setCameraReady(false);
+        if (e2.name === 'NotReadableError' || e2.message?.includes('in use') || e2.message?.includes('Device')) {
+          setCameraError('Webcam is locked by another app (Zoom/Teams/OBS). Please close other camera apps and click Retry.');
+        } else if (e2.name === 'NotAllowedError' || e2.name === 'PermissionDeniedError') {
+          setCameraError('Camera permission blocked. Click the lock icon in the URL bar to allow camera.');
+        } else {
+          setCameraError('Camera unavailable: ' + (e2.message || 'Check camera hardware connection'));
+        }
       }
     }
   }, [initEyeTracking]);
@@ -755,15 +765,17 @@ export default function LiveInterview() {
               }}
             />
             {!cameraReady && (
-              <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', textAlign: 'center', padding: '1rem', position: 'absolute' }}>
-                <Video size={40} />
-                <p style={{ margin: 0, fontSize: '0.85rem' }}>Camera preview requested</p>
+              <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', textAlign: 'center', padding: '1rem', position: 'absolute', maxWidth: '300px' }}>
+                <Video size={36} />
+                <p style={{ margin: 0, fontSize: '0.8rem', color: cameraError ? 'var(--danger)' : 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  {cameraError || 'Camera preview requested'}
+                </p>
                 <button
                   onClick={startCamera}
                   className="btn-primary"
                   style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', marginTop: '0.2rem' }}
                 >
-                  Enable Camera
+                  {cameraError ? 'Retry Camera' : 'Enable Camera'}
                 </button>
               </div>
             )}
