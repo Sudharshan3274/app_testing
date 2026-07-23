@@ -760,15 +760,25 @@ export default function LiveInterview() {
                 videoRef.current = el;
                 if (el && streamRef.current && el.srcObject !== streamRef.current) {
                   el.srcObject = streamRef.current;
+                  el.onloadedmetadata = () => {
+                    el.play().catch(() => {});
+                  };
                   el.play().catch(() => {});
                 }
               }}
               autoPlay
               playsInline
               muted
+              onLoadedMetadata={(e) => {
+                e.target.play().catch(() => {});
+              }}
+              onCanPlay={(e) => {
+                e.target.play().catch(() => {});
+              }}
               style={{
                 width: '100%',
                 height: '100%',
+                minHeight: '220px',
                 objectFit: 'cover',
                 transform: 'scaleX(-1)',
                 display: cameraReady ? 'block' : 'none'
