@@ -415,36 +415,32 @@ export default function LiveInterview() {
   // ── Eye Tracking with MediaPipe FaceMesh ──
   const initEyeTracking = useCallback(async () => {
     try {
-      // Dynamically load MediaPipe FaceMesh via CDN
-      const FaceMesh = window.FaceMesh;
-      if (!FaceMesh) {
-        // Load the script dynamically
-        await new Promise((resolve, reject) => {
+      // Dynamically load MediaPipe FaceMesh via CDN gracefully
+      if (!window.FaceMesh) {
+        await new Promise((resolve) => {
           if (document.querySelector('script[src*="face_mesh"]')) { resolve(); return; }
           const s1 = document.createElement('script');
           s1.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js';
           s1.crossOrigin = 'anonymous';
           s1.onload = resolve;
-          s1.onerror = reject;
+          s1.onerror = () => { console.warn("MediaPipe FaceMesh script load skipped"); resolve(); };
           document.head.appendChild(s1);
         });
-        // Also load camera utils
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve) => {
           if (document.querySelector('script[src*="camera_utils"]')) { resolve(); return; }
           const s2 = document.createElement('script');
           s2.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
           s2.crossOrigin = 'anonymous';
           s2.onload = resolve;
-          s2.onerror = reject;
+          s2.onerror = () => { console.warn("MediaPipe CameraUtils script load skipped"); resolve(); };
           document.head.appendChild(s2);
         });
       }
 
-      // Wait a moment for scripts to initialize
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 300));
 
       if (!window.FaceMesh) {
-        console.warn('FaceMesh not available, eye tracking disabled');
+        console.warn('FaceMesh not available, using default 100% eye tracking score');
         return;
       }
 
