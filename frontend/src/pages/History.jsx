@@ -7,45 +7,51 @@ export default function History() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let unsubscribe = () => {};
+
     async function loadHistory() {
+      // 1. Load local history immediately so the user sees results right away
+      const localHistory = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+      localHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setHistory(localHistory);
+
+      // 2. Merge Firestore data when available
       try {
         const { db, auth } = await import('../firebase.js');
         const { collection, query, where, getDocs } = await import('firebase/firestore');
-        
-        auth.onAuthStateChanged(async (user) => {
+
+        unsubscribe = auth.onAuthStateChanged(async (user) => {
           if (user) {
-            let dbData = [];
             try {
               const q = query(
                 collection(db, "interviews"), 
                 where("userId", "==", user.uid)
               );
               const querySnapshot = await getDocs(q);
-              dbData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              const dbData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              
+              const currentLocal = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+              const merged = [...dbData];
+              currentLocal.forEach(localItem => {
+                if (!merged.some(dbItem => dbItem.id === localItem.id)) {
+                  merged.push(localItem);
+                }
+              });
+
+              merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+              setHistory(merged);
             } catch (fsErr) {
-              console.warn("Firestore history load failed, falling back/merging with local storage:", fsErr);
+              console.warn("Firestore history load notice:", fsErr);
             }
-            
-            const localHistory = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
-            
-            // Merge both and de-duplicate by ID
-            const merged = [...dbData];
-            localHistory.forEach(localItem => {
-              if (!merged.some(dbItem => dbItem.id === localItem.id)) {
-                merged.push(localItem);
-              }
-            });
-            
-            // Sort client-side to prevent Firestore composite index requirements
-            merged.sort((a, b) => new Date(b.date) - new Date(a.date));
-            setHistory(merged);
           }
         });
       } catch (err) {
         console.error("Failed to load interview history:", err);
       }
     }
+
     loadHistory();
+    return () => unsubscribe();
   }, []);
 
   const getScoreColor = (score) => {

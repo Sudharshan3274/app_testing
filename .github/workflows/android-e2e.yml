@@ -11,9 +11,7 @@ jobs:
   appium-tests:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pages: write
-      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -47,17 +45,5 @@ jobs:
       - name: Publish GitHub Actions Summary
         run: |
           cat "Test Results/Summary/summary.md" >> $GITHUB_STEP_SUMMARY
-          echo "Report URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/latest/execution-report.html" >> $GITHUB_STEP_SUMMARY
-
-      - name: Prepare GitHub Pages Deployment
-        run: |
-          mkdir -p public/reports/latest
-          cp -r "Test Results/HTML/"* public/reports/latest/
-          cp -r "Test Results/Summary/"* public/reports/latest/
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          keep_files: true
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Excel Report:** Available as \`Automation_Test_Report.xlsx\` in the **Appium-Test-Reports** artifact at the bottom of this run." >> $GITHUB_STEP_SUMMARY

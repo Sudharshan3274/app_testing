@@ -111,7 +111,7 @@ export default function InterviewsScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Interview Prep Hub</Text>
+          <Text style={styles.title}>🎙️ Interview Prep Hub</Text>
           <Text style={styles.subtitle}>
             Select a domain below to start your AI-powered live video interview. Practice answering questions and get immediate feedback.
           </Text>
@@ -127,11 +127,12 @@ export default function InterviewsScreen({ navigation }) {
                   styles.card,
                   { borderColor: isSelected ? category.color : '#334155', borderWidth: isSelected ? 2 : 1 }
                 ]}
-                onPress={() => setSelectedCategory(category)}
+                onPress={() => setSelectedCategory(isSelected ? null : category)}
+                activeOpacity={0.85}
               >
                 <View style={styles.cardHeader}>
-                  <View style={[styles.iconBox, { backgroundColor: category.color + '15' }]}>
-                    <Text style={[styles.icon, { color: category.color }]}>{category.icon}</Text>
+                  <View style={[styles.iconBox, { backgroundColor: category.color + '18' }]}>
+                    <Text style={styles.icon}>{category.icon}</Text>
                   </View>
                   <Text style={styles.cardTitle}>{category.title}</Text>
                 </View>
@@ -146,7 +147,13 @@ export default function InterviewsScreen({ navigation }) {
                 <TouchableOpacity
                   style={[
                     styles.startButton,
-                    { backgroundColor: isSelected ? category.color : '#1E293B' }
+                    {
+                      backgroundColor: isSelected ? category.color : '#1E293B',
+                      shadowColor: isSelected ? category.color : 'transparent',
+                      shadowOpacity: 0.4,
+                      shadowRadius: 8,
+                      elevation: isSelected ? 4 : 0,
+                    }
                   ]}
                   onPress={() => handleStartInterview(category)}
                 >
@@ -159,6 +166,26 @@ export default function InterviewsScreen({ navigation }) {
           })}
         </View>
 
+        {/* Sample Questions Panel — shown when a category is selected */}
+        {selectedCategory && (
+          <View style={[styles.sampleBox, { borderLeftColor: selectedCategory.color, borderLeftWidth: 4 }]}>
+            <View style={styles.sampleHeader}>
+              <Text style={styles.sampleIcon}>{selectedCategory.icon}</Text>
+              <Text style={[styles.sampleTitle, { color: selectedCategory.color }]}>
+                Sample {selectedCategory.title} Questions
+              </Text>
+            </View>
+            {selectedCategory.questions.map((q, idx) => (
+              <View
+                key={idx}
+                style={[styles.questionItem, { borderLeftColor: selectedCategory.color }]}
+              >
+                <Text style={[styles.questionArrow, { color: selectedCategory.color }]}>›</Text>
+                <Text style={styles.questionText}>{q}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -253,22 +280,43 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: '#334155',
+    marginTop: 4,
+  },
+  sampleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  sampleIcon: {
+    fontSize: 22,
   },
   sampleTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 16,
+    color: '#F8FAFC',
+    flex: 1,
   },
   questionItem: {
     backgroundColor: '#0F172A',
     padding: 12,
     borderRadius: 8,
     borderLeftWidth: 4,
-    marginBottom: 12,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  questionArrow: {
+    fontSize: 22,
+    lineHeight: 22,
+    fontWeight: 'bold',
+    marginTop: -2,
   },
   questionText: {
     color: '#F8FAFC',
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
+    flex: 1,
   },
 });

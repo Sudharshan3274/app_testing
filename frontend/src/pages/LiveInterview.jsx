@@ -526,18 +526,31 @@ export default function LiveInterview() {
     const finalRecordedQuestions = [...recordedQuestions, extraRecorded ?? wasRecordingThisQuestion];
     const finalEyeContact = eyeContactPercent;
 
-    // Try AI-powered analysis from backend first
     setAnalyzingResults(true);
     let scores, aiFeedback;
-    let savedId = Date.now().toString(); // Default ID
+    let savedId = Date.now().toString();
     let localResult = null;
-    
+
+    // ── Always compute local scores first (instant, no network needed) ──
+    scores = calculateScores({
+      timePerQuestion: finalTimePerQuestion,
+      recordedQuestions: finalRecordedQuestions,
+      totalQuestions: questions.length,
+      questionsAnswered: currentQuestionIdx + 1,
+      domain,
+      textAnswers,
+    });
+    aiFeedback = { ai_powered: false };
+
+    // ── Try backend AI with a fast 1.5s timeout ──
     try {
       const { fetchApi } = await import('../utils/api.js');
-      
-      // 1. Analyze
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
+
       const aiResult = await fetchApi('/api/interview/analyze', {
         method: 'POST',
+        signal: controller.signal,
         body: JSON.stringify({
           domain,
           questions,
@@ -547,96 +560,75 @@ export default function LiveInterview() {
           recordedQuestions: finalRecordedQuestions,
         })
       });
-      
-      scores = aiResult.scores;
-      aiFeedback = {
-        feedback: aiResult.feedback,
-        perQuestionFeedback: aiResult.perQuestionFeedback,
-        topStrengths: aiResult.topStrengths,
-        areasToImprove: aiResult.areasToImprove,
-        ai_powered: aiResult.ai_powered || false,
-      };
+      clearTimeout(timeoutId);
 
-      // 2. Save to Firestore
-      const { db, auth } = await import('../firebase.js');
-      const { collection, addDoc } = await import('firebase/firestore');
-      
-      const user = auth.currentUser;
-      if (user) {
-        const docRef = await addDoc(collection(db, "interviews"), {
-          userId: user.uid,
-          userEmail: user.email,
-          domain,
-          date: new Date().toISOString(),
-          scores,
-          feedback: aiResult.feedback || {},
-          perQuestionFeedback: aiResult.perQuestionFeedback || [],
-          topStrengths: aiResult.topStrengths || [],
-          areasToImprove: aiResult.areasToImprove || [],
-          eyeContactScore: finalEyeContact,
-          duration: `${Math.round(finalTimePerQuestion.reduce((a, b) => a + b, 0))}s`
-        });
-        savedId = docRef.id;
+      // Only use AI result if scores are valid
+      if (aiResult && aiResult.scores && aiResult.scores.overall > 0) {
+        scores = aiResult.scores;
+        aiFeedback = {
+          feedback: aiResult.feedback,
+          perQuestionFeedback: aiResult.perQuestionFeedback,
+          topStrengths: aiResult.topStrengths,
+          areasToImprove: aiResult.areasToImprove,
+          ai_powered: aiResult.ai_powered || false,
+        };
       }
-      
     } catch (err) {
-      console.warn('Backend API failed, using local scoring and storage fallback:', err.message);
-      scores = calculateScores({
-        timePerQuestion: finalTimePerQuestion,
-        recordedQuestions: finalRecordedQuestions,
-        totalQuestions: questions.length,
-        questionsAnswered: currentQuestionIdx + 1,
-        domain,
-        textAnswers,
-      });
-      aiFeedback = { ai_powered: false };
-      
-      localResult = {
-        id: savedId,
-        date: new Date().toISOString(),
-        domain,
-        scores,
-        questions,
-        textAnswers,
-        eyeContactScore: finalEyeContact,
-        aiFeedback,
-        metrics: {
-          timePerQuestion: finalTimePerQuestion.map(t => Math.round(t)),
-          recordedQuestions: finalRecordedQuestions,
-          totalTime: Math.round(finalTimePerQuestion.reduce((a, b) => a + b, 0)),
-        },
-      };
+      console.warn('Backend AI skipped (fast fallback), using local scoring:', err.message);
+    }
 
+    // ── Save result ──
+    localResult = {
+      id: savedId,
+      date: new Date().toISOString(),
+      domain,
+      scores,
+      questions,
+      textAnswers,
+      eyeContactScore: finalEyeContact,
+      aiFeedback,
+      metrics: {
+        timePerQuestion: finalTimePerQuestion.map(t => Math.round(t)),
+        recordedQuestions: finalRecordedQuestions,
+        totalTime: Math.round(finalTimePerQuestion.reduce((a, b) => a + b, 0)),
+      },
+    };
+
+    // Save to localStorage immediately for INSTANT result page load
+    const history = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+    history.push(localResult);
+    localStorage.setItem('interviewHistory', JSON.stringify(history));
+
+    // Save to Firestore in background asynchronously (NON-BLOCKING)
+    (async () => {
       try {
         const { db, auth } = await import('../firebase.js');
         const { collection, addDoc } = await import('firebase/firestore');
         const user = auth.currentUser;
         if (user) {
-          const docRef = await addDoc(collection(db, "interviews"), {
+          await addDoc(collection(db, 'interviews'), {
             userId: user.uid,
             userEmail: user.email,
             domain,
             date: localResult.date,
             scores,
-            feedback: { overall: "Good response. (Offline Mode)" },
-            perQuestionFeedback: [],
-            topStrengths: ["Clear phrasing", "Good speed"],
-            areasToImprove: ["Incorporate more role-specific terms"],
+            feedback: aiFeedback?.feedback || {},
+            perQuestionFeedback: aiFeedback?.perQuestionFeedback || [],
+            topStrengths: aiFeedback?.topStrengths || [],
+            areasToImprove: aiFeedback?.areasToImprove || [],
             eyeContactScore: finalEyeContact,
-            duration: `${localResult.metrics.totalTime}s`
+            duration: `${localResult.metrics.totalTime}s`,
+            questions,
+            textAnswers,
+            metrics: localResult.metrics,
           });
-          savedId = docRef.id;
         }
       } catch (fsErr) {
-        console.warn('Saving local scores to Firestore also failed:', fsErr);
+        console.warn('Firestore background save notice:', fsErr.message);
       }
+    })();
 
-      const history = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
-      history.push({ ...localResult, id: savedId });
-      localStorage.setItem('interviewHistory', JSON.stringify(history));
-    }
     setAnalyzingResults(false);
-
     navigate('/interview/result/' + savedId);
   }, [currentQuestionIdx, domain, navigate, questions, questionStartTime, recordedQuestions, textAnswers, timePerQuestion, wasRecordingThisQuestion, eyeContactPercent]);
 

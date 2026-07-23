@@ -15,6 +15,7 @@ import HistoryScreen from '../screens/HistoryScreen';
 import ResumeAnalysisScreen from '../screens/ResumeAnalysisScreen';
 import ChallengesScreen from '../screens/ChallengesScreen';
 import CoursesScreen from '../screens/CoursesScreen';
+import CourseDetailScreen from '../screens/CourseDetailScreen';
 import LiveInterviewScreen from '../screens/LiveInterviewScreen';
 import InterviewResultScreen from '../screens/InterviewResultScreen';
 
@@ -37,19 +38,13 @@ function TabNavigator() {
           let iconName;
           if (route.name === 'Dashboard') iconName = '🏠';
           else if (route.name === 'Interviews') iconName = '🎙️';
+          else if (route.name === 'Courses') iconName = '🎓';
           else if (route.name === 'History') iconName = '📊';
           else if (route.name === 'Resume') iconName = '📄';
-          else if (route.name === 'Courses') iconName = '🎓';
           else if (route.name === 'Challenges') iconName = '💻';
 
-          if (Lucide) {
-            // Can render Lucide icons here if desired
-          }
-          // Simple text emoji fallback works on all devices and looks clean
           const TabIcon = () => (
             <View style={{ justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator style={{ display: 'none' }} />
-              {/* Emojis look great, keep it lightweight */}
               <Text style={{ fontSize: size }}>{iconName}</Text>
             </View>
           );
@@ -78,6 +73,7 @@ function TabNavigator() {
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Interviews" component={InterviewsScreen} />
       <Tab.Screen name="Courses" component={CoursesScreen} />
+      <Tab.Screen name="History" component={HistoryScreen} />
       <Tab.Screen name="Resume" component={ResumeAnalysisScreen} options={{ title: 'Resume ATS' }} />
       <Tab.Screen name="Challenges" component={ChallengesScreen} />
     </Tab.Navigator>
@@ -123,7 +119,7 @@ export default function AppNavigator() {
           <Stack.Screen name="MainTabs" component={TabNavigator} />
           <Stack.Screen name="LiveInterview" component={LiveInterviewScreen} />
           <Stack.Screen name="InterviewResult" component={InterviewResultScreen} />
-          <Stack.Screen name="History" component={HistoryScreen} />
+          <Stack.Screen name="CourseDetail" component={CourseDetailScreen} />
         </>
       ) : (
         <>

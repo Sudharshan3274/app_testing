@@ -96,12 +96,18 @@ export default function InterviewResultScreen({ route, navigation }) {
   const { grade, label: gradeLabel, color: gradeColor } = getGrade(scores.overall || 70);
 
   const SECTORS = [
-    { key: 'contentKnowledge', label: 'Content Knowledge', color: '#8B5CF6' },
-    { key: 'communication', label: 'Communication', color: '#3B82F6' },
-    { key: 'confidence', label: 'Confidence', color: '#F59E0B' },
-    { key: 'fluency', label: 'Fluency', color: '#EC4899' },
-    { key: 'answerStructure', label: 'Answer Structure', color: '#10B981' }
+    { key: 'contentKnowledge', label: 'Content Knowledge', color: '#8B5CF6', tip: 'Add more domain-specific terminology to your answers' },
+    { key: 'communication', label: 'Communication', color: '#3B82F6', tip: 'Aim for 40-80 word answers. Elaborate with specific examples' },
+    { key: 'confidence', label: 'Confidence', color: '#F59E0B', tip: 'Use the text box to answer every question. Skipping questions lowers this score' },
+    { key: 'fluency', label: 'Fluency', color: '#EC4899', tip: 'Keep your answers consistently detailed. Avoid very short then very long answers' },
+    { key: 'answerStructure', label: 'Answer Structure', color: '#10B981', tip: 'Use the STAR method: Situation → Task → Action → Result' },
   ];
+
+  const weakSectors = SECTORS.filter(s => (scores[s.key] ?? 50) < 70);
+
+  const questions = result.questions || [];
+  const textAnswers = result.textAnswers || [];
+  const timePerQuestion = (result.metrics && result.metrics.timePerQuestion) || [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -117,7 +123,6 @@ export default function InterviewResultScreen({ route, navigation }) {
           </Text>
         </View>
 
-        {/* Score Ring Summary */}
         <View style={styles.scoreSummaryCard}>
           <View style={[styles.gradeCircle, { borderColor: gradeColor }]}>
             <Text style={styles.gradeText}>{grade}</Text>
@@ -125,7 +130,12 @@ export default function InterviewResultScreen({ route, navigation }) {
           </View>
           <Text style={[styles.gradeLabel, { color: gradeColor }]}>{gradeLabel} Performance</Text>
           <Text style={styles.overallFeedback}>
-            {feedback.overall || "Your overall responses demonstrate good communication capabilities and structure."}
+            {feedback.overall ||
+              (scores.overall >= 85
+                ? 'Outstanding response pattern! Your industry terminologies, structured arguments, and detailed justifications show advanced readiness.'
+                : scores.overall >= 70
+                ? 'Solid showing. You have a good base. Incorporating the suggested structural frameworks will push you into the top tier.'
+                : 'A valuable diagnostic run. To raise your profile, focus on providing more thorough explanations and using industry keywords.')}
           </Text>
           <View style={styles.metaBadgeRow}>
             <View style={styles.metaBadge}>
@@ -137,26 +147,28 @@ export default function InterviewResultScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Performance Breakdown */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Performance Breakdown</Text>
           {SECTORS.map(sec => {
             const val = scores[sec.key] || 70;
+            const barColor = val >= 85 ? '#10B981' : val >= 70 ? '#6366F1' : val >= 55 ? '#F59E0B' : '#EF4444';
             return (
               <View key={sec.key} style={styles.breakdownItem}>
                 <View style={styles.breakdownLabelRow}>
                   <Text style={styles.breakdownLabel}>{sec.label}</Text>
-                  <Text style={[styles.breakdownVal, { color: sec.color }]}>{val}%</Text>
+                  <Text style={[styles.breakdownVal, { color: barColor }]}>{val}%</Text>
                 </View>
                 <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: `${val}%`, backgroundColor: sec.color }]} />
+                  <View style={[styles.progressBarFill, { width: `${val}%`, backgroundColor: barColor }]} />
                 </View>
+                {feedback[sec.key] ? (
+                  <Text style={styles.sectorFeedback}>{feedback[sec.key]}</Text>
+                ) : null}
               </View>
             );
           })}
         </View>
 
-        {/* Strengths & Improvement Areas */}
         {topStrengths.length > 0 || areasToImprove.length > 0 ? (
           <View style={styles.grid}>
             {topStrengths.length > 0 && (
@@ -177,6 +189,58 @@ export default function InterviewResultScreen({ route, navigation }) {
             )}
           </View>
         ) : null}
+
+        <View style={[styles.tipCard, { borderLeftColor: '#6366F1', marginTop: 16 }]}>
+          <Text style={[styles.tipCardTitleGreen, { color: '#6366F1' }]}>💡 Recommendations for Improvement</Text>
+          {weakSectors.length > 0 ? (
+            weakSectors.map(s => (
+              <Text key={s.key} style={styles.tipItem}>
+                <Text style={{ color: '#F8FAFC', fontWeight: 'bold' }}>{s.label}: </Text>{s.tip}
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.tipItem}>
+              ✨ Excellent work! All your sectors scored above 70. Keep practicing to maintain this level of consistent performance.
+            </Text>
+          )}
+        </View>
+
+        {questions.length > 0 && (
+          <View style={{ marginTop: 24 }}>
+            <Text style={styles.sectionTitle}>📝 Response Log & Timing</Text>
+            {questions.map((question, index) => {
+              const ans = textAnswers[index] || '';
+              const words = ans.trim() ? ans.trim().split(/\s+/).filter(w => w.length > 1).length : 0;
+              const time = timePerQuestion[index] ? Math.round(timePerQuestion[index]) : 0;
+              const tag = index < 3 ? 'Behavioral' : 'Domain Specific';
+              const tagColor = index < 3 ? '#6366F1' : '#10B981';
+              const tagBg = index < 3 ? 'rgba(99,102,241,0.15)' : 'rgba(16,185,129,0.15)';
+
+              return (
+                <View key={index} style={styles.qnaCard}>
+                  <View style={styles.qnaHeader}>
+                    <View style={[styles.qnaTag, { backgroundColor: tagBg }]}>
+                      <Text style={[styles.qnaTagText, { color: tagColor }]}>{tag}</Text>
+                    </View>
+                    <Text style={styles.qnaQuestionNum}>Question {index + 1}</Text>
+                    <View style={styles.qnaMeta}>
+                      <Text style={styles.qnaMetaText}>⏱ {time}s</Text>
+                      <Text style={styles.qnaMetaText}>📝 {words} words</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.qnaQuestion}>{question}</Text>
+                  <View style={styles.qnaAnswerBox}>
+                    {ans.trim() ? (
+                      <Text style={styles.qnaAnswer}>"{ans}"</Text>
+                    ) : (
+                      <Text style={styles.qnaNoAnswer}>⚠️ No written response was provided for this question.</Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -368,5 +432,85 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 20,
     marginBottom: 6,
+  },
+  sectorFeedback: {
+    color: '#64748B',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#F8FAFC',
+    marginBottom: 16,
+  },
+  qnaCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  qnaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+    paddingBottom: 10,
+  },
+  qnaTag: {
+    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  qnaTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  qnaQuestionNum: {
+    fontSize: 13,
+    color: '#94A3B8',
+    flex: 1,
+  },
+  qnaMeta: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  qnaMetaText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  qnaQuestion: {
+    fontSize: 15,
+    color: '#F8FAFC',
+    lineHeight: 22,
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  qnaAnswerBox: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.03)',
+  },
+  qnaAnswer: {
+    fontSize: 14,
+    color: '#CBD5E1',
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+  qnaNoAnswer: {
+    fontSize: 14,
+    color: '#EF4444',
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
 });

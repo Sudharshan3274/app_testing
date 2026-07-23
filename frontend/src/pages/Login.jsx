@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, LogIn, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, LogIn } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -90,19 +90,6 @@ export default function Login() {
         }} />
 
         <div style={{ position: 'relative', zIndex: 1, marginBottom: '2.5rem' }}>
-          <button
-            onClick={() => navigate('/')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.4rem',
-              background: 'transparent', border: 'none', color: 'var(--text-secondary)',
-              cursor: 'pointer', padding: '0.4rem 0', marginBottom: '1.5rem',
-              fontSize: '0.9rem', fontFamily: 'inherit', transition: 'color 0.2s'
-            }}
-            onMouseOver={e => e.currentTarget.style.color = 'var(--accent-primary)'}
-            onMouseOut={e => e.currentTarget.style.color = 'var(--text-secondary)'}
-          >
-            <ArrowLeft size={18} /> Back to Home
-          </button>
           <div style={{ textAlign: 'center' }}>
             <h2 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem', marginTop: 0 }}>
               {isResetMode ? 'Reset Password' : 'Welcome Back'}

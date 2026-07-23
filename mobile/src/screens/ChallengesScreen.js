@@ -100,7 +100,7 @@ export default function ChallengesScreen() {
         Alert.alert("Execution Failed", "Please verify your code compile logs and logic.");
       }
     } catch (err) {
-      console.warn("Backend compiler connection failed, simulating local evaluation:", err);
+      // Backend compiler connection failed — fall back to local evaluation
       // Fallback local execution simulation (eval) only for Javascript
       if (selectedLanguage === 'javascript') {
         try {

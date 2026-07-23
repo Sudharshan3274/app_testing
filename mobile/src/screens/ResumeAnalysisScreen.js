@@ -4,6 +4,7 @@ import {
   ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+
 import { fetchApi, getApiBaseUrl } from '../utils/api';
 
 export default function ResumeAnalysisScreen() {
@@ -44,44 +45,103 @@ export default function ResumeAnalysisScreen() {
     setResult(null);
     try {
       const baseUrl = await getApiBaseUrl();
-      const formData = new FormData();
-      formData.append('file', {
-        uri: selectedFile.uri,
-        name: selectedFile.name,
-        type: selectedFile.mimeType || 'application/octet-stream',
-      });
+      
+      // Use Expo's modern UploadTask (bypasses React Native's buggy FormData)
+      const FileSystem = require('expo-file-system');
+      const fileToUpload = new FileSystem.File(selectedFile.uri);
+      
+      const uploadTask = new FileSystem.UploadTask(
+        fileToUpload,
+        `${baseUrl}/api/resume/analyze`,
+        {
+          uploadType: FileSystem.UploadType.MULTIPART,
+          fieldName: 'file',
+          mimeType: selectedFile.mimeType || 'application/pdf',
+          httpMethod: 'POST'
+        }
+      );
 
-      const response = await fetch(`${baseUrl}/api/resume/analyze`, {
-        method: 'POST',
-        body: formData,
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await uploadTask.uploadAsync();
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Backend error');
+      if (response.status !== 200) {
+        let errorDetail = 'Backend error';
+        try {
+          const errData = JSON.parse(response.body);
+          errorDetail = errData.detail || errorDetail;
+        } catch (_) {}
+        throw new Error(errorDetail);
       }
 
-      const data = await response.json();
+      const data = JSON.parse(response.body);
       if (data.error) throw new Error(data.error);
 
       // Populate text area with extracted text for ATS matching
       if (data.raw_text) setResumeText(data.raw_text);
 
-      setResult(buildResultFromAnalyze(data));
-    } catch (err) {
-      console.warn('File upload analysis failed:', err.message);
-      // Fall back to local if text was extracted or user pasted
-      if (resumeText.trim()) {
-        handleTextAtsLocal();
-      } else {
-        Alert.alert(
-          'Analysis Failed',
-          'Could not connect to backend. Start the backend server and try again, or switch to "Paste Text" mode.',
-          [{ text: 'OK' }]
-        );
-        setAnalyzing(false);
+      // Now also run the ML ATS match using extracted text + job description
+      let atsResult = null;
+      try {
+        atsResult = await fetchApi('/api/resume/ats-match', {
+          method: 'POST',
+          body: JSON.stringify({
+            resume_text: data.raw_text || '',
+            job_description: jobDescription || 'general software developer role',
+          }),
+        });
+      } catch (_) {}
+
+      // Merge AI analysis + ML ATS score
+      const aiResult = buildResultFromAnalyze(data);
+      if (atsResult) {
+        aiResult.atsScore = atsResult.score || atsResult.overall || null;
+        aiResult.matchingKeywords = atsResult.matching_keywords || [];
+        aiResult.missingKeywords = atsResult.missing_keywords || [];
       }
+      setResult(aiResult);
+      setAnalyzing(false); // Reset loading state on success
+    } catch (err) {
+      console.warn('Backend file upload failed, attempting local text fallback:', err.message);
+      
+      // Attempt local plain text read if file is text/plain
+      try {
+        const FileSystem = require('expo-file-system');
+        const content = await FileSystem.readAsStringAsync(selectedFile.uri);
+        if (content && content.trim().length > 10) {
+          setResumeText(content);
+          const rLower = content.toLowerCase();
+          const jLower = (jobDescription || 'software engineering developer python javascript react api').toLowerCase();
+          const rWords = new Set((rLower.match(/\b\w{3,}\b/g) || []));
+          const jWords = new Set((jLower.match(/\b\w{3,}\b/g) || []));
+          const overlap = [...rWords].filter(w => jWords.has(w));
+          const ratio = jWords.size > 0 ? overlap.length / jWords.size : 0;
+          const score = Math.round(Math.min(98, 15 + ratio * 110));
+          
+          setResult({
+            atsScore: score,
+            matchLabel: score >= 75 ? 'Strong Match' : score >= 55 ? 'Potential Fit' : 'Needs Improvement',
+            summary: 'Analyzed locally from extracted file content.',
+            strengths: ['Resume text extracted successfully', 'Key domain terms matched'],
+            improvements: ['Add more specific skills mentioned in job description'],
+            matchingKeywords: overlap.slice(0, 10),
+            missingKeywords: [...jWords].filter(w => !rWords.has(w)).slice(0, 8),
+            categoryScores: {
+              contactInfo: /@/.test(content) ? 95 : 40,
+              experience: /experience|work|history|worked/i.test(content) ? 88 : 50,
+              skills: /skills|languages|technologies/i.test(content) ? 90 : 55,
+              education: /education|bachelor|master|university|degree/i.test(content) ? 85 : 45,
+            }
+          });
+          setAnalyzing(false);
+          return;
+        }
+      } catch (_) {}
+
+      Alert.alert(
+        'Upload Connection Error',
+        `Could not reach backend at the current IP. Tip: You can switch to the "Paste Text" tab to analyze your resume instantly!`,
+        [{ text: 'OK' }]
+      );
+      setAnalyzing(false);
     }
   };
 
@@ -102,6 +162,7 @@ export default function ResumeAnalysisScreen() {
         }),
       });
       setResult(buildResultFromAts(data, resumeText, jobDescription));
+      setAnalyzing(false); // Reset loading state on success
     } catch (err) {
       console.warn('Backend ATS match failed, calculating locally:', err.message);
       handleTextAtsLocal();
@@ -172,6 +233,7 @@ export default function ResumeAnalysisScreen() {
     suggestions: data.suggestions || [],
     matchingKeywords: [],
     missingKeywords: [],
+    predictions: data.predictions || [],
     ai_powered: data.ai_powered || false,
   });
 
@@ -345,6 +407,24 @@ export default function ResumeAnalysisScreen() {
               </View>
             </View>
 
+            {/* ML ATS Score (from ML model) */}
+            {result.atsScore != null && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>🤖 ML Model ATS Score</Text>
+                <View style={styles.scoreRow}>
+                  <View style={[styles.scoreCircle, { borderColor: getScoreColor(result.atsScore), width: 70, height: 70 }]}>
+                    <Text style={[styles.scoreVal, { color: getScoreColor(result.atsScore), fontSize: 22 }]}>{result.atsScore}</Text>
+                    <Text style={styles.scoreMax}>/100</Text>
+                  </View>
+                  <View style={styles.scoreMeta}>
+                    <Text style={[styles.scoreLabel, { color: getScoreColor(result.atsScore) }]}>
+                      {result.atsScore >= 75 ? 'Strong Match' : result.atsScore >= 55 ? 'Potential Fit' : 'Needs Improvement'}
+                    </Text>
+                    <Text style={styles.scoreSub}>Predicted by trained ML model (joblib)</Text>
+                  </View>
+                </View>
+              </View>
+            )}
             {/* Category Breakdown */}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Category Breakdown</Text>
@@ -363,6 +443,25 @@ export default function ResumeAnalysisScreen() {
                 );
               })}
             </View>
+
+            {/* Predictions */}
+            {result.predictions && result.predictions.length > 0 && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>🎯 Fit Prediction vs Job Roles</Text>
+                <Text style={{color: '#94A3B8', fontSize: 13, marginBottom: 12}}>Based on semantic analysis of your resume</Text>
+                {result.predictions.map((pred, i) => (
+                  <View key={i} style={styles.breakdownItem}>
+                    <View style={styles.breakdownLabelRow}>
+                      <Text style={[styles.breakdownLabel, { color: '#F8FAFC', fontWeight: '600' }]}>{pred.role}</Text>
+                      <Text style={[styles.breakdownVal, { color: getScoreColor(pred.score) }]}>{pred.score}%</Text>
+                    </View>
+                    <View style={styles.barBg}>
+                      <View style={[styles.barFill, { width: `${Math.min(100, pred.score)}%`, backgroundColor: getScoreColor(pred.score) }]} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
 
             {/* Strengths / Suggestions */}
             {(result.strengths || result.weaknesses || result.suggestions) && (

@@ -1504,6 +1504,7 @@ export default function Challenges() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [running, setRunning] = useState(false);
+  const [submissionError, setSubmissionError] = useState('');
 
   // Filtering states
   const [searchTerm, setSearchTerm] = useState('');
@@ -1587,11 +1588,41 @@ export default function Challenges() {
     
     try {
       if (selectedLanguage === 'javascript') {
-        const results = runJSLocally();
-        setTestResults(results);
-        setExecutionMeta({ status: { id: 3, description: 'Accepted' }, time: '< 0.01s', memory: 'N/A (local)', stdout: '', stderr: '', compile_output: '' });
-        setRunning(false);
-        return results;
+        try {
+          const results = runJSLocally();
+          setTestResults(results);
+          setExecutionMeta({
+            status: { id: 3, description: 'Accepted' },
+            statusInfo: { label: 'Accepted', color: '#10B981', type: 'success' },
+            time: '< 0.01s',
+            memory: 'N/A (local)',
+            stdout: '',
+            stderr: '',
+            compile_output: ''
+          });
+          setOutputTab('output');
+          setRunning(false);
+          return results;
+        } catch (jsErr) {
+          setExecutionMeta({
+            status: { id: 11, description: 'Runtime Error' },
+            statusInfo: { label: 'Runtime Error (JS)', color: '#EF4444', type: 'error' },
+            time: '< 0.01s',
+            memory: 'N/A (local)',
+            stdout: '',
+            stderr: jsErr.message,
+            compile_output: ''
+          });
+          setTestResults([{
+            passed: false,
+            input: 'JavaScript Execution',
+            expected: 'No Exception',
+            actual: jsErr.message
+          }]);
+          setOutputTab('errors');
+          setRunning(false);
+          return;
+        }
       } else {
         const result = await runViaCompiler(code, selectedLanguage);
         const statusInfo = JUDGE0_STATUS[result.status?.id] || { label: 'Unknown', color: 'var(--text-secondary)', type: 'error' };
@@ -1608,25 +1639,33 @@ export default function Challenges() {
         };
         setExecutionMeta(meta);
 
-        // If there are compile errors or runtime errors, switch to errors tab
-        if (statusInfo.type === 'compile_error' || (statusInfo.type === 'error' && (result.stderr || result.compile_output))) {
-          
+        // Auto-switch output tab based on error presence
+        if (statusInfo.type === 'compile_error' || statusInfo.type === 'error' || result.stderr || result.compile_output) {
+          setOutputTab('errors');
+        } else {
+          setOutputTab('output');
         }
 
         if (statusInfo.type === 'compile_error') {
-          setTestResults([{
+          const failResults = [{
             passed: false,
             input: 'Compilation',
             expected: 'Successful compilation',
             actual: result.compile_output || result.message || 'Unknown compilation error'
-          }]);
+          }];
+          setTestResults(failResults);
+          setRunning(false);
+          return failResults;
         } else if (statusInfo.type === 'error') {
-          setTestResults([{
+          const failResults = [{
             passed: false,
             input: statusInfo.label,
             expected: 'Successful execution',
             actual: result.stderr || result.message || statusInfo.label
-          }]);
+          }];
+          setTestResults(failResults);
+          setRunning(false);
+          return failResults;
         } else {
           // Accepted — parse output lines
           const output = (result.stdout || '').trim();
@@ -1644,56 +1683,48 @@ export default function Challenges() {
             results.unshift({ passed: false, input: 'Output', expected: 'Program output', actual: '(no output — make sure to print results)' });
           }
           setTestResults(results);
+          setRunning(false);
+          return results;
         }
-        setRunning(false);
-        return null;
       }
     } catch (err) {
       let friendlyMessage = err.message;
       if (friendlyMessage.includes('Invalid or unexpected token') || friendlyMessage.includes('Unexpected token')) {
         friendlyMessage = `Syntax Error: ${err.message}. Please check for typos, copy-paste errors, unmatched brackets, or smart quotes (“ or ”).`;
       }
-      setTestResults([{ 
+      const failResults = [{ 
         passed: false, 
         input: 'Execution', 
         expected: 'Successful run', 
         actual: friendlyMessage.includes('fetch') ? 'Network error — check your internet connection' : friendlyMessage 
-      }]);
+      }];
+      setTestResults(failResults);
       setExecutionMeta({ status: { id: 13, description: 'Internal Error' }, statusInfo: JUDGE0_STATUS[13], time: 'N/A', memory: 'N/A', stdout: '', stderr: friendlyMessage, compile_output: '' });
       
       setRunning(false);
-      return null;
+      return failResults;
     }
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    
-    if (selectedLanguage === 'javascript') {
-      const results = await handleRunTests();
-      setTimeout(() => {
-        setSubmitting(false);
-        if (results && results.every(r => r.passed)) {
-          if (!solvedIds.includes(selectedChallenge.id)) {
-            const updated = [...solvedIds, selectedChallenge.id];
-            setSolvedIds(updated);
-            localStorage.setItem('solvedChallenges', JSON.stringify(updated));
-          }
-          setShowSuccessModal(true);
-        }
-      }, 500);
+    setSubmissionError('');
+
+    const results = await handleRunTests();
+    setSubmitting(false);
+
+    const isAllPassed = results && results.length > 0 && results.every(r => r.passed === true);
+
+    if (isAllPassed) {
+      if (!solvedIds.includes(selectedChallenge.id)) {
+        const updated = [...solvedIds, selectedChallenge.id];
+        setSolvedIds(updated);
+        localStorage.setItem('solvedChallenges', JSON.stringify(updated));
+      }
+      setShowSuccessModal(true);
     } else {
-      // For non-JS, run via Piston and mark as solved if output is produced
-      await handleRunTests();
-      setTimeout(() => {
-        setSubmitting(false);
-        if (!solvedIds.includes(selectedChallenge.id)) {
-          const updated = [...solvedIds, selectedChallenge.id];
-          setSolvedIds(updated);
-          localStorage.setItem('solvedChallenges', JSON.stringify(updated));
-        }
-        setShowSuccessModal(true);
-      }, 500);
+      setSubmissionError('Submission Rejected: Your code is not correct for this language or did not pass all test cases. Please review errors below.');
+      setOutputTab('errors');
     }
   };
 
@@ -1963,6 +1994,29 @@ export default function Challenges() {
           </div>
         </div>
 
+        {/* Submission Error Banner */}
+        {submissionError && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.15)',
+            borderBottom: '1px solid rgba(239, 68, 68, 0.3)',
+            padding: '0.65rem 1.5rem',
+            color: '#fca5a5',
+            fontSize: '0.85rem',
+            fontFamily: 'monospace',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>⚠ {submissionError}</span>
+            <button 
+              onClick={() => setSubmissionError('')} 
+              style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700 }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Editor and Description split view */}
         <div className="ch-split-view" style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           {/* Challenge Description panel */}
@@ -2053,14 +2107,14 @@ export default function Challenges() {
 
             {/* ═══ Professional Compiler Output Panel ═══ */}
             <div className="ch-output-panel" style={{
-              flex: 1,
+              flex: '0 0 320px',
+              height: '320px',
               borderTop: '1px solid var(--border-color)',
               background: '#0a0b10',
               display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0
+              flexDirection: 'column'
             }}>
-              {/* Output Panel Header with tabs */}
+              {/* Output Panel Header with interactive tabs */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -2069,43 +2123,63 @@ export default function Challenges() {
                 padding: '0 1rem',
                 background: '#0d0e15',
                 flexWrap: 'wrap',
-                gap: '0.4rem'
+                gap: '0.4rem',
+                flexShrink: 0
               }}>
-                <div style={{ display: 'flex', gap: 0 }}>
-                  <div style={{
-                    padding: '0.6rem 1rem',
-                    background: 'transparent',
-                    borderBottom: '2px solid var(--accent-primary)',
-                    color: '#fff',
-                    fontFamily: 'monospace',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    display: 'flex', alignItems: 'center', gap: '0.4rem'
-                  }}>
-                    <Terminal size={13} /> OUTPUT
-                  </div>
-                  {/* Errors indicator dot */}
-                  {executionMeta && (executionMeta.stderr || executionMeta.compile_output) && (
-                    <div style={{
-                      padding: '0.6rem 0.75rem',
-                      display: 'flex', alignItems: 'center', gap: '0.4rem',
-                      color: '#fca5a5',
+                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                  {/* OUTPUT Tab */}
+                  <button
+                    onClick={() => setOutputTab('output')}
+                    style={{
+                      padding: '0.6rem 1rem',
+                      background: 'transparent',
+                      border: 'none',
+                      borderBottom: outputTab === 'output' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                      color: outputTab === 'output' ? '#fff' : 'var(--text-secondary)',
                       fontFamily: 'monospace',
                       fontSize: '0.8rem',
+                      fontWeight: 600,
                       textTransform: 'uppercase',
-                      letterSpacing: '0.05em'
-                    }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--danger)', display: 'inline-block' }} />
-                      Errors
-                    </div>
-                  )}
+                      letterSpacing: '0.05em',
+                      display: 'flex', alignItems: 'center', gap: '0.4rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Terminal size={13} /> OUTPUT
+                  </button>
+
+                  {/* ERRORS Tab */}
+                  <button
+                    onClick={() => setOutputTab('errors')}
+                    style={{
+                      padding: '0.6rem 1rem',
+                      background: 'transparent',
+                      border: 'none',
+                      borderBottom: outputTab === 'errors' ? '2px solid var(--danger)' : '2px solid transparent',
+                      color: outputTab === 'errors' ? '#fca5a5' : 'var(--text-secondary)',
+                      fontFamily: 'monospace',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      display: 'flex', alignItems: 'center', gap: '0.4rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: (executionMeta && (executionMeta.stderr || executionMeta.compile_output || executionMeta.message)) ? 'var(--danger)' : 'var(--text-secondary)',
+                      display: 'inline-block'
+                    }} />
+                    ERRORS {executionMeta && (executionMeta.stderr || executionMeta.compile_output || executionMeta.message) ? '⚠' : ''}
+                  </button>
                 </div>
+
                 {/* Execution Stats */}
                 {executionMeta && (
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.75rem', padding: '0.4rem 0' }}>
-                    {/* Status badge */}
                     <span style={{
                       padding: '0.2rem 0.6rem',
                       borderRadius: '4px',
@@ -2115,15 +2189,11 @@ export default function Challenges() {
                       letterSpacing: '0.03em',
                       background: executionMeta.statusInfo?.type === 'success'
                         ? 'rgba(16,185,129,0.15)'
-                        : executionMeta.statusInfo?.type === 'compile_error'
-                        ? 'rgba(239,68,68,0.15)'
-                        : executionMeta.statusInfo?.type === 'error'
-                        ? 'rgba(239,68,68,0.15)'
-                        : 'rgba(255,255,255,0.05)',
-                      color: executionMeta.statusInfo?.color || 'var(--text-secondary)',
-                      border: `1px solid ${executionMeta.statusInfo?.color || 'var(--border-color)'}33`
+                        : 'rgba(239,68,68,0.15)',
+                      color: executionMeta.statusInfo?.color || (executionMeta.statusInfo?.type === 'success' ? '#10B981' : '#EF4444'),
+                      border: `1px solid ${executionMeta.statusInfo?.color || '#EF4444'}33`
                     }}>
-                      {executionMeta.statusInfo?.label || executionMeta.status?.description || 'Unknown'}
+                      {executionMeta.statusInfo?.label || executionMeta.status?.description || 'Executed'}
                     </span>
                     <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <Clock size={11} /> {executionMeta.time}
@@ -2137,88 +2207,109 @@ export default function Challenges() {
 
               {/* Output Panel Content */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
-                {/* No results state */}
                 {!testResults && !executionMeta ? (
                   <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontFamily: 'monospace' }}>
                     <Terminal size={14} /> Press "Run Tests" to compile and execute your code.
                   </div>
-                ) : (
-                  /* ── UNIFIED OUTPUT PANEL ── */
+                ) : outputTab === 'errors' ? (
+                  /* ── ERRORS TAB CONTENT ── */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-
-                    {/* Compilation errors — show at top if present */}
-                    {executionMeta?.compile_output && (
+                    {executionMeta?.compile_output ? (
                       <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--danger)', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--danger)', fontFamily: 'monospace', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
                           ⚠ Compilation Error
                         </div>
                         <pre style={{
-                          background: 'rgba(239, 68, 68, 0.06)',
-                          border: '1px solid rgba(239, 68, 68, 0.15)',
-                          borderRadius: '6px',
-                          padding: '0.75rem',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          borderRadius: '8px',
+                          padding: '1rem',
                           fontFamily: 'monospace',
-                          fontSize: '0.8rem',
+                          fontSize: '0.85rem',
                           color: '#fca5a5',
                           lineHeight: 1.6,
                           margin: 0,
                           whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word',
-                          maxHeight: '200px',
+                          maxHeight: '220px',
                           overflowY: 'auto'
                         }}>{executionMeta.compile_output}</pre>
                       </div>
-                    )}
-
-                    {/* Runtime errors / stderr — show at top if present */}
-                    {executionMeta?.stderr && (
+                    ) : executionMeta?.stderr ? (
                       <div>
-                        <div style={{ fontSize: '0.7rem', color: '#F59E0B', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                          ⚠ Runtime Error / stderr
+                        <div style={{ fontSize: '0.75rem', color: '#F59E0B', fontFamily: 'monospace', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                          ⚠ Runtime Error / Exception Trace
                         </div>
                         <pre style={{
-                          background: 'rgba(245, 158, 11, 0.06)',
-                          border: '1px solid rgba(245, 158, 11, 0.15)',
-                          borderRadius: '6px',
-                          padding: '0.75rem',
+                          background: 'rgba(245, 158, 11, 0.08)',
+                          border: '1px solid rgba(245, 158, 11, 0.25)',
+                          borderRadius: '8px',
+                          padding: '1rem',
                           fontFamily: 'monospace',
-                          fontSize: '0.8rem',
+                          fontSize: '0.85rem',
                           color: '#fcd34d',
                           lineHeight: 1.6,
                           margin: 0,
                           whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word',
-                          maxHeight: '200px',
+                          maxHeight: '220px',
                           overflowY: 'auto'
                         }}>{executionMeta.stderr}</pre>
                       </div>
-                    )}
-
-                    {/* Message (API/system error like 404) */}
-                    {executionMeta?.message && (
+                    ) : executionMeta?.message ? (
                       <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--danger)', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                          ⚠ Error
+                        <div style={{ fontSize: '0.75rem', color: 'var(--danger)', fontFamily: 'monospace', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                          ⚠ Execution Error
                         </div>
                         <pre style={{
-                          background: 'rgba(239, 68, 68, 0.06)',
-                          border: '1px solid rgba(239, 68, 68, 0.15)',
-                          borderRadius: '6px',
-                          padding: '0.75rem',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          borderRadius: '8px',
+                          padding: '1rem',
                           fontFamily: 'monospace',
-                          fontSize: '0.8rem',
+                          fontSize: '0.85rem',
                           color: '#fca5a5',
                           lineHeight: 1.6,
                           margin: 0,
                           whiteSpace: 'pre-wrap'
                         }}>{executionMeta.message}</pre>
                       </div>
+                    ) : (
+                      <div style={{ color: '#10B981', fontFamily: 'monospace', fontSize: '0.85rem', padding: '0.5rem 0' }}>
+                        ✓ No compilation or runtime errors detected.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* ── OUTPUT TAB CONTENT ── */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {/* Error Banner if there's an error */}
+                    {(executionMeta?.stderr || executionMeta?.compile_output || executionMeta?.message) && (
+                      <div 
+                        onClick={() => setOutputTab('errors')}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          borderRadius: '6px',
+                          padding: '0.5rem 0.8rem',
+                          color: '#fca5a5',
+                          fontSize: '0.8rem',
+                          fontFamily: 'monospace',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <span>⚠ Execution produced errors. Click to view detailed log.</span>
+                        <span style={{ textDecoration: 'underline', fontWeight: 700 }}>View ERRORS →</span>
+                      </div>
                     )}
 
-                    {/* Stdout — only show if there is output */}
+                    {/* Stdout */}
                     {executionMeta?.stdout && (
                       <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>stdout</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontFamily: 'monospace', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Standard Output (stdout)</div>
                         <pre style={{
                           background: 'rgba(255,255,255,0.02)',
                           border: '1px solid rgba(255,255,255,0.06)',
@@ -2237,7 +2328,7 @@ export default function Challenges() {
                       </div>
                     )}
 
-                    {/* Test case results */}
+                    {/* Test Case Results */}
                     {testResults && testResults.map((res, i) => (
                       <div
                         key={i}
@@ -2265,13 +2356,6 @@ export default function Challenges() {
                         </div>
                       </div>
                     ))}
-
-                    {/* All clear — show success message */}
-                    {!executionMeta?.compile_output && !executionMeta?.stderr && !executionMeta?.message && !executionMeta?.stdout && !testResults && (
-                      <div style={{ color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                        Press "Run Tests" to compile and execute your code.
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -2279,7 +2363,6 @@ export default function Challenges() {
           </div>
         </div>
       </div>
-
       )}
       {/* Success Modal */}
       {showSuccessModal && (

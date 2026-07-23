@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Brain, MessageSquare, Zap, Activity, ClipboardList, CheckCircle2, AlertCircle, Clock, FileText, Eye, Sparkles } from 'lucide-react';
+import { Brain, MessageSquare, Zap, Activity, ClipboardList, CheckCircle2, AlertCircle, Clock, FileText, Eye, Sparkles } from 'lucide-react';
 
 export default function InterviewResult() {
   const { id } = useParams();
@@ -9,34 +9,29 @@ export default function InterviewResult() {
 
   useEffect(() => {
     async function loadResult() {
+      // 1. Try local storage first for INSTANT loading
+      const history = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+      const localFound = history.find(item => item.id === id);
+      if (localFound) {
+        setResult(localFound);
+        return;
+      }
+
+      // 2. Fallback to Firestore if not found locally
       try {
         const { db } = await import('../firebase.js');
         const { doc, getDoc } = await import('firebase/firestore');
-        
         const docRef = doc(db, "interviews", id);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
           setResult({ id: docSnap.id, ...docSnap.data() });
         } else {
-          // Fallback to local storage if API fails or not found (e.g., local test)
-          const history = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
-          const fallbackResult = history.find(item => item.id === id);
-          if (fallbackResult) {
-            setResult(fallbackResult);
-          } else {
-            navigate('/history');
-          }
+          navigate('/history');
         }
       } catch (err) {
         console.error("Failed to load interview result from Firestore:", err);
-        const history = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
-        const fallbackResult = history.find(item => item.id === id);
-        if (fallbackResult) {
-          setResult(fallbackResult);
-        } else {
-          navigate('/history');
-        }
+        navigate('/history');
       }
     }
     loadResult();
@@ -107,15 +102,6 @@ export default function InterviewResult() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', color: 'var(--text-primary)' }}>
-      {/* Back to Dashboard */}
-      <button
-        className="btn-secondary"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem', border: 'none', padding: '0.6rem 1.2rem', cursor: 'pointer' }}
-        onClick={() => navigate('/dashboard')}
-      >
-        <ArrowLeft size={16} /> Back to Dashboard
-      </button>
-
       {/* Title */}
       <div style={{ marginBottom: '3rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1.5rem' }}>
         <h1 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: 800, margin: '0 0 0.5rem 0' }}>Interview Evaluation Report</h1>

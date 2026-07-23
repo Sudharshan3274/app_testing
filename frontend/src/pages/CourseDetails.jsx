@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, 
   BookOpen, 
   Book, 
   Code as CodeIcon, 
@@ -1858,23 +1857,6 @@ export default function CourseDetails() {
 
   return (
     <div className="container cd-container" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
-      {/* Back button */}
-      <button 
-        className="btn-secondary cd-back-btn"
-        style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.5rem', 
-          marginBottom: '2rem', 
-          border: 'none', 
-          padding: '0.6rem 1.2rem',
-          cursor: 'pointer'
-        }}
-        onClick={() => navigate('/courses')}
-      >
-        <ArrowLeft size={18} /> Back to Courses
-      </button>
-
       {/* Header Info */}
       <div className="cd-header" style={{ marginBottom: '2.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '2rem' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>

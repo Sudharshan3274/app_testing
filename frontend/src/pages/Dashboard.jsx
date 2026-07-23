@@ -22,44 +22,54 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let unsubscribe = () => {};
+
+    const updateStats = (dataList) => {
+      if (dataList.length > 0) {
+        const totalScore = dataList.reduce((acc, curr) => acc + (curr.scores?.overall || 0), 0);
+        setStats({
+          avgScore: Math.round(totalScore / dataList.length),
+          totalTaken: dataList.length,
+          practiceHours: +(dataList.length * 0.75).toFixed(1)
+        });
+      }
+    };
+
     async function loadHistory() {
+      // 1. Load local history immediately so dashboard updates stats right away
+      const localHistory = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+      localHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setHistory(localHistory);
+      updateStats(localHistory);
+
+      // 2. Merge Firestore data when available
       try {
         const { db, auth } = await import('../firebase.js');
         const { collection, query, where, getDocs } = await import('firebase/firestore');
-        
-        auth.onAuthStateChanged(async (user) => {
+
+        unsubscribe = auth.onAuthStateChanged(async (user) => {
           if (user) {
-            let dbData = [];
             try {
               const q = query(
                 collection(db, "interviews"), 
                 where("userId", "==", user.uid)
               );
               const querySnapshot = await getDocs(q);
-              dbData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            } catch (fsErr) {
-              console.warn("Firestore dashboard load failed, using local storage fallback:", fsErr);
-            }
-            
-            const localHistory = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
-            
-            const merged = [...dbData];
-            localHistory.forEach(localItem => {
-              if (!merged.some(dbItem => dbItem.id === localItem.id)) {
-                merged.push(localItem);
-              }
-            });
-            
-            merged.sort((a, b) => new Date(b.date) - new Date(a.date));
-            setHistory(merged);
+              const dbData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            if (merged.length > 0) {
-              const totalScore = merged.reduce((acc, curr) => acc + (curr.scores?.overall || 0), 0);
-              setStats({
-                avgScore: Math.round(totalScore / merged.length),
-                totalTaken: merged.length,
-                practiceHours: +(merged.length * 0.75).toFixed(1)
+              const currentLocal = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+              const merged = [...dbData];
+              currentLocal.forEach(localItem => {
+                if (!merged.some(dbItem => dbItem.id === localItem.id)) {
+                  merged.push(localItem);
+                }
               });
+
+              merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+              setHistory(merged);
+              updateStats(merged);
+            } catch (fsErr) {
+              console.warn("Firestore dashboard load notice:", fsErr);
             }
           }
         });
@@ -67,7 +77,9 @@ export default function Dashboard() {
         console.error("Failed to load interview history from Firebase:", err);
       }
     }
+
     loadHistory();
+    return () => unsubscribe();
   }, []);
 
   const chartData = (() => {

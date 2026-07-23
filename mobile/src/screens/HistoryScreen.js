@@ -121,7 +121,7 @@ export default function HistoryScreen({ navigation }) {
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.arrow}>➡️</Text>
+                  <Text style={styles.arrow}>›</Text>
                 </TouchableOpacity>
               );
             })}
@@ -208,10 +208,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#1E293B',
     borderRadius: 16,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderColor: '#334155',
+    padding: 20,
     borderWidth: 1,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
   },
   itemLeft: {
     flexDirection: 'row',
@@ -220,36 +224,41 @@ const styles = StyleSheet.create({
   },
   scoreBox: {
     backgroundColor: '#0F172A',
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
-    minWidth: 60,
+    minWidth: 64,
   },
   scoreLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#64748B',
     textTransform: 'uppercase',
+    fontWeight: '600',
   },
   scoreVal: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginTop: 2,
+    marginTop: 4,
   },
   info: {
     justifyContent: 'center',
+    flex: 1,
   },
   domain: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: 'bold',
     color: '#F8FAFC',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   date: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 14,
+    color: '#94A3B8',
   },
   arrow: {
-    fontSize: 16,
+    fontSize: 28,
     color: '#64748B',
+    fontWeight: '300',
+    paddingLeft: 10,
   },
 });
