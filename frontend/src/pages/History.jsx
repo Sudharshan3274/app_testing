@@ -4,7 +4,6 @@ import { Clock, Calendar, ChevronRight, VideoOff, Trash2 } from 'lucide-react';
 
 export default function History() {
   const [history, setHistory] = useState([]);
-  const [selectedRawData, setSelectedRawData] = useState(null);
   const navigate = useNavigate();
 
   const handleDeleteSingle = async (recordId, e) => {
@@ -234,13 +233,6 @@ export default function History() {
 
                   <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                     <button
-                      className="btn-secondary"
-                      onClick={() => setSelectedRawData(record)}
-                      style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem' }}
-                    >
-                      View Database JSON
-                    </button>
-                    <button
                       className="btn-primary"
                       onClick={() => navigate('/interview/result/' + record.id)}
                       style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
@@ -269,76 +261,68 @@ export default function History() {
                   </div>
                 </div>
 
-                {/* 5 Sector Scores Grid */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1rem))',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  background: 'rgba(0,0,0,0.25)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255,255,255,0.05)'
-                }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>🧠 Knowledge</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.contentKnowledge || 0) }}>
-                      {record.scores?.contentKnowledge || 0}%
+                {/* 5 Sector Scores Grid for Interviews / Metadata Grid for Coding */}
+                {record.type === 'coding_challenge' ? (
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                    padding: '0.85rem 1rem',
+                    background: 'rgba(0,0,0,0.25)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    fontSize: '0.85rem'
+                  }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Difficulty: <strong style={{ color: record.difficulty === 'Easy' ? '#10B981' : record.difficulty === 'Medium' ? '#F59E0B' : '#EF4444' }}>{record.difficulty || 'Easy'}</strong></span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Language: <strong style={{ color: '#fff' }}>{(record.language || 'javascript').toUpperCase()}</strong></span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Category: <strong style={{ color: '#fff' }}>{record.category || 'General'}</strong></span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Status: <strong style={{ color: record.passed ? '#10B981' : '#F59E0B' }}>{record.status || (record.passed ? 'Completed' : 'Attempted')}</strong></span>
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: '0.75rem',
+                    padding: '1rem',
+                    background: 'rgba(0,0,0,0.25)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255,255,255,0.05)'
+                  }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>🧠 Knowledge</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.contentKnowledge || 0) }}>
+                        {record.scores?.contentKnowledge || 0}%
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>💬 Communication</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.communication || 0) }}>
+                        {record.scores?.communication || 0}%
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>👁️ Confidence</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.confidence || 0) }}>
+                        {record.scores?.confidence || 0}%
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>⚡ Fluency</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.fluency || 0) }}>
+                        {record.scores?.fluency || 0}%
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>🎯 STAR Structure</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.answerStructure || 0) }}>
+                        {record.scores?.answerStructure || 0}%
+                      </div>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>💬 Communication</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.communication || 0) }}>
-                      {record.scores?.communication || 0}%
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>👁️ Confidence</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.confidence || 0) }}>
-                      {record.scores?.confidence || 0}%
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>⚡ Fluency</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.fluency || 0) }}>
-                      {record.scores?.fluency || 0}%
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>🎯 STAR Structure</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '600', color: getScoreColor(record.scores?.answerStructure || 0) }}>
-                      {record.scores?.answerStructure || 0}%
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Raw Database JSON Viewer Modal */}
-      {selectedRawData && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1.5rem'
-        }}>
-          <div style={{
-            background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-            borderRadius: '16px', maxWidth: '700px', width: '100%', maxHeight: '80vh',
-            display: 'flex', flexDirection: 'column', overflow: 'hidden'
-          }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, color: '#fff', fontSize: '1.2rem' }}>💾 Stored Database Record JSON</h3>
-              <button className="btn-secondary" onClick={() => setSelectedRawData(null)} style={{ padding: '0.3rem 0.7rem' }}>Close</button>
-            </div>
-            <pre style={{
-              flex: 1, padding: '1.5rem', margin: 0, overflow: 'auto', background: '#0b0f19',
-              color: '#10B981', fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.5'
-            }}>
-              {JSON.stringify(selectedRawData, null, 2)}
-            </pre>
-          </div>
         </div>
       )}
     </div>
