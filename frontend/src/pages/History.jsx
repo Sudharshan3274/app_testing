@@ -15,38 +15,46 @@ export default function History() {
       localHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
       setHistory(localHistory);
 
-      // 2. Merge Firestore data when available
+      // 2. Merge Firestore data when available (query by userEmail or userId)
       try {
         const { db, auth } = await import('../firebase.js');
         const { collection, query, where, getDocs } = await import('firebase/firestore');
 
-        unsubscribe = auth.onAuthStateChanged(async (user) => {
-          if (user) {
-            try {
-              const q = query(
-                collection(db, "interviews"), 
-                where("userId", "==", user.uid)
-              );
-              const querySnapshot = await getDocs(q);
-              const dbData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              
-              const currentLocal = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
-              const merged = [...dbData];
-              currentLocal.forEach(localItem => {
-                if (!merged.some(dbItem => dbItem.id === localItem.id)) {
-                  merged.push(localItem);
-                }
-              });
+        const userEmail = (auth.currentUser?.email || localStorage.getItem('userEmail'))?.toLowerCase();
+        const userId = auth.currentUser?.uid || localStorage.getItem('userId');
 
-              merged.sort((a, b) => new Date(b.date) - new Date(a.date));
-              setHistory(merged);
-            } catch (fsErr) {
-              console.warn("Firestore history load notice:", fsErr);
+        let dbData = [];
+        if (userEmail) {
+          try {
+            const q = query(collection(db, "interviews"), where("userEmail", "==", userEmail));
+            const snap = await getDocs(q);
+            dbData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          } catch (e) {}
+        }
+
+        if (dbData.length === 0 && userId) {
+          try {
+            const q = query(collection(db, "interviews"), where("userId", "==", userId));
+            const snap = await getDocs(q);
+            dbData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          } catch (e) {}
+        }
+
+        if (dbData.length > 0) {
+          const currentLocal = JSON.parse(localStorage.getItem('interviewHistory') || '[]');
+          const merged = [...dbData];
+          currentLocal.forEach(localItem => {
+            if (!merged.some(dbItem => dbItem.id === localItem.id || dbItem.date === localItem.date)) {
+              merged.push(localItem);
             }
-          }
-        });
+          });
+
+          merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+          setHistory(merged);
+          localStorage.setItem('interviewHistory', JSON.stringify(merged));
+        }
       } catch (err) {
-        console.error("Failed to load interview history:", err);
+        console.warn("Web Firestore history load notice:", err);
       }
     }
 

@@ -604,25 +604,24 @@ export default function LiveInterview() {
       try {
         const { db, auth } = await import('../firebase.js');
         const { collection, addDoc } = await import('firebase/firestore');
-        const user = auth.currentUser;
-        if (user) {
-          await addDoc(collection(db, 'interviews'), {
-            userId: user.uid,
-            userEmail: user.email,
-            domain,
-            date: localResult.date,
-            scores,
-            feedback: aiFeedback?.feedback || {},
-            perQuestionFeedback: aiFeedback?.perQuestionFeedback || [],
-            topStrengths: aiFeedback?.topStrengths || [],
-            areasToImprove: aiFeedback?.areasToImprove || [],
-            eyeContactScore: finalEyeContact,
-            duration: `${localResult.metrics.totalTime}s`,
-            questions,
-            textAnswers,
-            metrics: localResult.metrics,
-          });
-        }
+        const userEmail = (auth.currentUser?.email || localStorage.getItem('userEmail'))?.toLowerCase();
+        const userId = auth.currentUser?.uid || localStorage.getItem('userId') || 'user-' + Date.now();
+        await addDoc(collection(db, 'interviews'), {
+          userId,
+          userEmail: userEmail || 'user@example.com',
+          domain,
+          date: localResult.date,
+          scores,
+          feedback: aiFeedback?.feedback || {},
+          perQuestionFeedback: aiFeedback?.perQuestionFeedback || [],
+          topStrengths: aiFeedback?.topStrengths || [],
+          areasToImprove: aiFeedback?.areasToImprove || [],
+          eyeContactScore: finalEyeContact,
+          duration: `${localResult.metrics.totalTime}s`,
+          questions,
+          textAnswers,
+          metrics: localResult.metrics,
+        });
       } catch (fsErr) {
         console.warn('Firestore background save notice:', fsErr.message);
       }

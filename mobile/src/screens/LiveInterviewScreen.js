@@ -462,6 +462,33 @@ export default function LiveInterviewScreen({ route, navigation }) {
       // Silent fail — not critical
     }
 
+    // Save to Firestore cloud database in background so all devices sync automatically!
+    (async () => {
+      try {
+        const userEmail = (auth.currentUser?.email || (await AsyncStorage.getItem('userEmail')))?.toLowerCase();
+        const userId = auth.currentUser?.uid || (await AsyncStorage.getItem('userId')) || 'user-' + Date.now();
+        await addDoc(collection(db, 'interviews'), {
+          userId,
+          userEmail: userEmail || 'user@example.com',
+          domain,
+          date: newRecord.date,
+          scores: localResult.scores,
+          feedback: localResult.feedback || {},
+          perQuestionFeedback: localResult.perQuestionFeedback || [],
+          topStrengths: localResult.topStrengths || [],
+          areasToImprove: localResult.areasToImprove || [],
+          eyeContactScore: avgEyeContact,
+          duration: `${Math.round(totalTime)}s`,
+          answeredQuestions: answeredCount2,
+          totalQuestions: questions.length,
+          questions,
+          textAnswers,
+        });
+      } catch (err) {
+        console.warn('Mobile Firestore save notice:', err.message);
+      }
+    })();
+
     // Navigate to results IMMEDIATELY with local scores (no waiting)
     setAnalyzingResults(false);
     navigation.navigate('InterviewResult', { id: savedId });

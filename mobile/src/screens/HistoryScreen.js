@@ -35,23 +35,49 @@ export default function HistoryScreen({ navigation }) {
         console.warn("History cache read error:", e);
       }
 
-      // 2. Query Firestore in background
+      // 2. Query Firestore in background by userEmail or userId
       try {
-        const user = auth.currentUser;
-        if (user) {
-          const q = query(
-            collection(db, "interviews"),
-            where("userId", "==", user.uid)
-          );
+        const userEmail = (auth.currentUser?.email || (await AsyncStorage.getItem('userEmail')))?.toLowerCase();
+        const userId = auth.currentUser?.uid || (await AsyncStorage.getItem('userId'));
 
-          const querySnapshot = await promiseWithTimeout(getDocs(q), 4000);
-          const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          data.sort((a, b) => new Date(b.date) - new Date(a.date));
-          setHistory(data);
-          await AsyncStorage.setItem('cachedHistory', JSON.stringify(data));
+        let dbData = [];
+        if (userEmail) {
+          try {
+            const q = query(
+              collection(db, "interviews"),
+              where("userEmail", "==", userEmail)
+            );
+            const querySnapshot = await promiseWithTimeout(getDocs(q), 4000);
+            dbData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          } catch (e) {}
+        }
+
+        if (dbData.length === 0 && userId) {
+          try {
+            const q = query(
+              collection(db, "interviews"),
+              where("userId", "==", userId)
+            );
+            const querySnapshot = await promiseWithTimeout(getDocs(q), 4000);
+            dbData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          } catch (e) {}
+        }
+
+        if (dbData.length > 0) {
+          const cached = await AsyncStorage.getItem('cachedHistory');
+          const localItems = cached ? JSON.parse(cached) : [];
+          const merged = [...dbData];
+          localItems.forEach(item => {
+            if (!merged.some(d => d.id === item.id || d.date === item.date)) {
+              merged.push(item);
+            }
+          });
+          merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+          setHistory(merged);
+          await AsyncStorage.setItem('cachedHistory', JSON.stringify(merged));
         }
       } catch (err) {
-        console.warn("Firestore history fetch failed/timed-out, using cache:", err);
+        console.warn("Firestore history fetch notice:", err);
       } finally {
         setLoading(false);
       }
