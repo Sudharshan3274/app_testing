@@ -148,7 +148,9 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-web:
     name: "🔨 Build & Deploy Web App"
-    if: always()
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
