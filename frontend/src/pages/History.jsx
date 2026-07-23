@@ -232,15 +232,19 @@ export default function History() {
                       onClick={(e) => handleDeleteSingle(record.id, e)}
                       title="Delete Record"
                       style={{
-                        padding: '0.5rem',
-                        borderColor: 'rgba(239,68,68,0.3)',
-                        color: 'var(--danger)',
+                        padding: '0.5rem 0.9rem',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        borderColor: '#EF4444',
+                        color: '#EF4444',
+                        fontWeight: '600',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        gap: '0.4rem',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer'
                       }}
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={16} /> Delete
                     </button>
                   </div>
                 </div>
