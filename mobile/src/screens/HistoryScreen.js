@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
+import { collection, query, where, getDocs, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -20,6 +20,60 @@ export default function HistoryScreen({ navigation }) {
       }),
       timeoutPromise
     ]);
+  };
+
+  const handleDeleteSingle = (recordId) => {
+    Alert.alert(
+      "Delete Interview",
+      "Are you sure you want to delete this interview record?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const updated = history.filter(item => item.id !== recordId);
+            setHistory(updated);
+            try {
+              await AsyncStorage.setItem('cachedHistory', JSON.stringify(updated));
+              await deleteDoc(doc(db, "interviews", recordId));
+            } catch (e) {
+              console.warn("Delete single notice:", e);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleClearAll = () => {
+    Alert.alert(
+      "Clear All History",
+      "Are you sure you want to clear ALL stored interview history? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear All",
+          style: "destructive",
+          onPress: async () => {
+            setHistory([]);
+            try {
+              await AsyncStorage.removeItem('cachedHistory');
+              const userEmail = (auth.currentUser?.email || (await AsyncStorage.getItem('userEmail')))?.toLowerCase();
+              if (userEmail) {
+                const q = query(collection(db, "interviews"), where("userEmail", "==", userEmail));
+                const snap = await promiseWithTimeout(getDocs(q), 4000);
+                snap.docs.forEach(async (d) => {
+                  await deleteDoc(doc(db, "interviews", d.id));
+                });
+              }
+            } catch (e) {
+              console.warn("Clear all notice:", e);
+            }
+          }
+        }
+      ]
+    );
   };
 
   useEffect(() => {
@@ -104,7 +158,14 @@ export default function HistoryScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Interview History</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={styles.title}>Interview History</Text>
+            {history.length > 0 && (
+              <TouchableOpacity onPress={handleClearAll} style={styles.clearBtn}>
+                <Text style={styles.clearBtnText}>Clear All</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <Text style={styles.subtitle}>
             Review your past AI mock interviews and track your progress over time.
           </Text>
@@ -147,7 +208,16 @@ export default function HistoryScreen({ navigation }) {
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.arrow}>›</Text>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteSingle(record.id)}
+                      style={styles.deleteBtn}
+                    >
+                      <Text style={styles.deleteBtnText}>🗑️</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.arrow}>›</Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -175,6 +245,25 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
+  },
+  clearBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  clearBtnText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  deleteBtn: {
+    padding: 6,
+  },
+  deleteBtnText: {
+    fontSize: 16,
   },
   title: {
     fontSize: 26,
