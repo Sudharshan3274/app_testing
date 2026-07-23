@@ -42,6 +42,14 @@ jobs:
 
       - name: Build React Application
         working-directory: frontend
+        env:
+          VITE_FIREBASE_API_KEY: "AIzaSyC2zagy6ujBKWPIRBSTQYcMqtUofLJugZM"
+          VITE_FIREBASE_AUTH_DOMAIN: "interviu-6a0f9.firebaseapp.com"
+          VITE_FIREBASE_PROJECT_ID: "interviu-6a0f9"
+          VITE_FIREBASE_STORAGE_BUCKET: "interviu-6a0f9.firebasestorage.app"
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "464843701487"
+          VITE_FIREBASE_APP_ID: "1:464843701487:web:5424abad7689e24aceef1a"
+          VITE_FIREBASE_MEASUREMENT_ID: "G-DZQ5B4CHTJ"
         run: npm run build
 
       - name: Setup GitHub Pages
