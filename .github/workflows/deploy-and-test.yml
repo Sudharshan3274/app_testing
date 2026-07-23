@@ -55,6 +55,7 @@ jobs:
   appium-e2e:
     name: "🧪 Android Appium E2E"
     needs: [build-apk]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -90,6 +91,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   security-review:
     name: "🔒 Security Review"
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -122,6 +124,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   backend-tests:
     name: "⚙️ Backend Service Tests"
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -145,6 +148,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-web:
     name: "🔨 Build & Deploy Web App"
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -191,6 +195,7 @@ jobs:
   verify-deploy:
     name: "🔍 Verify Live Web Deployment"
     needs: [security-review, backend-tests, build-web]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Wait for Live Web Deployment
@@ -213,6 +218,7 @@ jobs:
   web-e2e:
     name: "🧪 Web E2E Tests"
     needs: [appium-e2e, verify-deploy]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -266,7 +272,6 @@ jobs:
   unified-report:
     name: "📊 Unified Summary & Report"
     needs: [web-e2e, verify-deploy]
-    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Publish Complete Executive Summary Board with Response Times
