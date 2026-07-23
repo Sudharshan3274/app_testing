@@ -357,40 +357,50 @@ export default function LiveInterview() {
   // Camera setup + Eye Tracking
   const startCamera = useCallback(async () => {
     setCameraError(null);
+    let mediaStream = null;
+
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-        audio: true,
-      });
+      // Try simple video + audio constraints without facingMode desktop overconstraints
+      mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    } catch (err1) {
+      console.warn('Combined audio/video stream failed, trying video only:', err1.message);
+      try {
+        // Fallback: simple video stream
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (err2) {
+        console.error('Camera getUserMedia failed completely:', err2.name, err2.message);
+        setCameraReady(false);
+        if (err2.name === 'NotReadableError' || err2.message?.includes('in use') || err2.message?.includes('Device')) {
+          setCameraError('Webcam is locked by another app (Zoom/Teams/OBS). Close other camera apps & click Retry.');
+        } else if (err2.name === 'NotAllowedError' || err2.name === 'PermissionDeniedError') {
+          setCameraError('Camera blocked by browser. Click lock icon in address bar -> Allow Camera.');
+        } else if (err2.name === 'OverconstrainedError') {
+          setCameraError('Camera constraints mismatch. Click Retry Camera below.');
+        } else {
+          setCameraError('Camera unavailable: ' + (err2.message || err2.name));
+        }
+        return;
+      }
+    }
+
+    if (mediaStream) {
       streamRef.current = mediaStream;
       setCameraReady(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.play().catch(() => {});
-      }
-      initEyeTracking();
-    } catch (err) {
-      console.warn('Audio/Video combined stream notice, attempting video-only stream:', err.message);
-      try {
-        const videoOnlyStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        streamRef.current = videoOnlyStream;
-        setCameraReady(true);
+
+      const attachVideo = () => {
         if (videoRef.current) {
-          videoRef.current.srcObject = videoOnlyStream;
+          if (videoRef.current.srcObject !== mediaStream) {
+            videoRef.current.srcObject = mediaStream;
+          }
           videoRef.current.play().catch(() => {});
         }
-        initEyeTracking();
-      } catch (e2) {
-        console.error('Camera permissions denied or unavailable:', e2.name, e2.message);
-        setCameraReady(false);
-        if (e2.name === 'NotReadableError' || e2.message?.includes('in use') || e2.message?.includes('Device')) {
-          setCameraError('Webcam is locked by another app (Zoom/Teams/OBS). Please close other camera apps and click Retry.');
-        } else if (e2.name === 'NotAllowedError' || e2.name === 'PermissionDeniedError') {
-          setCameraError('Camera permission blocked. Click the lock icon in the URL bar to allow camera.');
-        } else {
-          setCameraError('Camera unavailable: ' + (e2.message || 'Check camera hardware connection'));
-        }
-      }
+      };
+
+      attachVideo();
+      setTimeout(attachVideo, 100);
+      setTimeout(attachVideo, 300);
+
+      initEyeTracking();
     }
   }, [initEyeTracking]);
 
