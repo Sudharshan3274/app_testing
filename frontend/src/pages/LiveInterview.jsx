@@ -348,69 +348,7 @@ export default function LiveInterview() {
   const canvasRef = useRef(null);
   const [analyzingResults, setAnalyzingResults] = useState(false);
 
-  // ── Next button enabled when: text ≥15 chars OR ≥10 s on this question ──
-  const currentText = textAnswers[currentQuestionIdx] || '';
-  const canProceed = currentText.length >= 15 || secondsOnQuestion >= 10;
-
   const [cameraError, setCameraError] = useState(null);
-
-  // Camera setup + Eye Tracking
-  const startCamera = useCallback(async () => {
-    setCameraError(null);
-    let mediaStream = null;
-
-    try {
-      // Try simple video + audio constraints without facingMode desktop overconstraints
-      mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    } catch (err1) {
-      console.warn('Combined audio/video stream failed, trying video only:', err1.message);
-      try {
-        // Fallback: simple video stream
-        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      } catch (err2) {
-        console.error('Camera getUserMedia failed completely:', err2.name, err2.message);
-        setCameraReady(false);
-        if (err2.name === 'NotReadableError' || err2.message?.includes('in use') || err2.message?.includes('Device')) {
-          setCameraError('Webcam is locked by another app (Zoom/Teams/OBS). Close other camera apps & click Retry.');
-        } else if (err2.name === 'NotAllowedError' || err2.name === 'PermissionDeniedError') {
-          setCameraError('Camera blocked by browser. Click lock icon in address bar -> Allow Camera.');
-        } else if (err2.name === 'OverconstrainedError') {
-          setCameraError('Camera constraints mismatch. Click Retry Camera below.');
-        } else {
-          setCameraError('Camera unavailable: ' + (err2.message || err2.name));
-        }
-        return;
-      }
-    }
-
-    if (mediaStream) {
-      streamRef.current = mediaStream;
-      setCameraReady(true);
-
-      const attachVideo = () => {
-        if (videoRef.current) {
-          if (videoRef.current.srcObject !== mediaStream) {
-            videoRef.current.srcObject = mediaStream;
-          }
-          videoRef.current.play().catch(() => {});
-        }
-      };
-
-      attachVideo();
-      setTimeout(attachVideo, 100);
-      setTimeout(attachVideo, 300);
-
-      initEyeTracking();
-    }
-  }, [initEyeTracking]);
-
-  useEffect(() => {
-    startCamera();
-    return () => {
-      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-      if (eyeTrackRef.current.animFrame) cancelAnimationFrame(eyeTrackRef.current.animFrame);
-    };
-  }, [startCamera]);
 
   // ── Eye Tracking with MediaPipe FaceMesh ──
   const initEyeTracking = useCallback(async () => {
@@ -523,6 +461,64 @@ export default function LiveInterview() {
       console.warn('[Eye Tracking] Could not initialize:', err.message);
     }
   }, []);
+
+  // Camera setup + Eye Tracking
+  const startCamera = useCallback(async () => {
+    setCameraError(null);
+    let mediaStream = null;
+
+    try {
+      // Try simple video + audio constraints without facingMode desktop overconstraints
+      mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    } catch (err1) {
+      console.warn('Combined audio/video stream failed, trying video only:', err1.message);
+      try {
+        // Fallback: simple video stream
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (err2) {
+        console.error('Camera getUserMedia failed completely:', err2.name, err2.message);
+        setCameraReady(false);
+        if (err2.name === 'NotReadableError' || err2.message?.includes('in use') || err2.message?.includes('Device')) {
+          setCameraError('Webcam is locked by another app (Zoom/Teams/OBS). Close other camera apps & click Retry.');
+        } else if (err2.name === 'NotAllowedError' || err2.name === 'PermissionDeniedError') {
+          setCameraError('Camera blocked by browser. Click lock icon in address bar -> Allow Camera.');
+        } else if (err2.name === 'OverconstrainedError') {
+          setCameraError('Camera constraints mismatch. Click Retry Camera below.');
+        } else {
+          setCameraError('Camera unavailable: ' + (err2.message || err2.name));
+        }
+        return;
+      }
+    }
+
+    if (mediaStream) {
+      streamRef.current = mediaStream;
+      setCameraReady(true);
+
+      const attachVideo = () => {
+        if (videoRef.current) {
+          if (videoRef.current.srcObject !== mediaStream) {
+            videoRef.current.srcObject = mediaStream;
+          }
+          videoRef.current.play().catch(() => {});
+        }
+      };
+
+      attachVideo();
+      setTimeout(attachVideo, 100);
+      setTimeout(attachVideo, 300);
+
+      initEyeTracking();
+    }
+  }, [initEyeTracking]);
+
+  useEffect(() => {
+    startCamera();
+    return () => {
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+      if (eyeTrackRef.current.animFrame) cancelAnimationFrame(eyeTrackRef.current.animFrame);
+    };
+  }, [startCamera]);
 
   // Reset per-question state when question changes
   useEffect(() => {
@@ -690,6 +686,8 @@ export default function LiveInterview() {
     });
   };
 
+  const currentText = textAnswers[currentQuestionIdx] || '';
+  const canProceed = currentText.length >= 15 || secondsOnQuestion >= 10;
   const progress = Math.round((currentQuestionIdx / questions.length) * 100);
   const charCount = currentText.length;
 

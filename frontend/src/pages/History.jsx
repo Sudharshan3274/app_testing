@@ -82,6 +82,16 @@ export default function History() {
             const q = query(collection(db, "interviews"), where("userEmail", "==", userEmail));
             const snap = await getDocs(q);
             dbData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const qCoding = query(collection(db, "coding_submissions"), where("userEmail", "==", userEmail));
+            const snapCoding = await getDocs(qCoding);
+            const codingDocs = snapCoding.docs.map(doc => ({
+              id: doc.id,
+              type: 'coding_challenge',
+              domain: `💻 Coding: ${doc.data().questionTitle}`,
+              ...doc.data()
+            }));
+            dbData = [...dbData, ...codingDocs];
           } catch (e) {}
         }
 
@@ -90,6 +100,16 @@ export default function History() {
             const q = query(collection(db, "interviews"), where("userId", "==", userId));
             const snap = await getDocs(q);
             dbData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const qCoding = query(collection(db, "coding_submissions"), where("userId", "==", userId));
+            const snapCoding = await getDocs(qCoding);
+            const codingDocs = snapCoding.docs.map(doc => ({
+              id: doc.id,
+              type: 'coding_challenge',
+              domain: `💻 Coding: ${doc.data().questionTitle}`,
+              ...doc.data()
+            }));
+            dbData = [...dbData, ...codingDocs];
           } catch (e) {}
         }
 

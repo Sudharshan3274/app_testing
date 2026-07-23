@@ -1715,6 +1715,30 @@ export default function Challenges() {
 
     const isAllPassed = results && results.length > 0 && results.every(r => r.passed === true);
 
+    // Save coding challenge details (question title & metadata, excluding full source code) to Firestore
+    (async () => {
+      try {
+        const { db, auth } = await import('../firebase.js');
+        const { collection, addDoc } = await import('firebase/firestore');
+        const userEmail = (auth.currentUser?.email || localStorage.getItem('userEmail'))?.toLowerCase();
+        const userId = auth.currentUser?.uid || localStorage.getItem('userId') || 'user-' + Date.now();
+        await addDoc(collection(db, 'coding_submissions'), {
+          userId,
+          userEmail,
+          questionTitle: selectedChallenge.title,
+          challengeId: selectedChallenge.id,
+          difficulty: selectedChallenge.difficulty,
+          category: selectedChallenge.category,
+          language: selectedLanguage,
+          status: isAllPassed ? 'Completed' : 'Attempted',
+          passed: isAllPassed,
+          date: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.warn('Coding challenge Firestore save notice:', err.message);
+      }
+    })();
+
     if (isAllPassed) {
       if (!solvedIds.includes(selectedChallenge.id)) {
         const updated = [...solvedIds, selectedChallenge.id];

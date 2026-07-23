@@ -87,8 +87,33 @@ export default function ChallengesScreen() {
       // If code compiled, executed successfully, and there's no compile error or runtime error
       const isCompileError = res.status?.id === 6;
       const isRuntimeError = res.status?.id === 11 || (res.stderr && res.stderr.trim().length > 0);
+      const isPassed = !isCompileError && !isRuntimeError;
+
+      // Save coding details to Firestore (excluding full source code as requested)
+      (async () => {
+        try {
+          const { db, auth } = await import('../firebase');
+          const { collection, addDoc } = await import('firebase/firestore');
+          const userEmail = (auth.currentUser?.email || (await AsyncStorage.getItem('userEmail')))?.toLowerCase();
+          const userId = auth.currentUser?.uid || (await AsyncStorage.getItem('userId')) || 'user-' + Date.now();
+          await addDoc(collection(db, 'coding_submissions'), {
+            userId,
+            userEmail,
+            questionTitle: selectedChallenge.title,
+            challengeId: selectedChallenge.id,
+            difficulty: selectedChallenge.difficulty,
+            category: selectedChallenge.category,
+            language: selectedLanguage,
+            status: isPassed ? 'Completed' : 'Attempted',
+            passed: isPassed,
+            date: new Date().toISOString(),
+          });
+        } catch (fsErr) {
+          console.warn('Mobile coding challenge Firestore notice:', fsErr);
+        }
+      })();
       
-      if (!isCompileError && !isRuntimeError) {
+      if (isPassed) {
         // Mark as solved
         if (!solvedIds.includes(selectedChallenge.id)) {
           const updated = [...solvedIds, selectedChallenge.id];
